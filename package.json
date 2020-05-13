@@ -1,0 +1,25 @@
+{
+  "name": "perseest",
+  "version": "1.0.0",
+  "description": "Persistent entities using node-postgres and ES5 classes and mixins",
+  "main": "perseest.js",
+  "scripts": {
+    "test": "mocha test.js"
+  },
+  "keywords": [
+    "persistent",
+    "postgres",
+    "pg",
+    "es6",
+    "mixin"
+  ],
+  "author": "jcondor",
+  "license": "MIT",
+  "devDependencies": {
+    "expect.js": "^0.3.1"
+  },
+  "dependencies": {
+    "pg": "^8.2.0",
+    "validate.js": "^0.13.1"
+  }
+}
