@@ -1,7 +1,7 @@
 {
   "name": "perseest",
   "version": "1.0.0",
-  "description": "Persistent entities using node-postgres and ES5 classes and mixins",
+  "description": "Persistent entities using node-postgres and ES6 classes and mixins",
   "main": "perseest.js",
   "scripts": {
     "test": "mocha test.js"

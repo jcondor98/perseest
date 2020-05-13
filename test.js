@@ -1,3 +1,5 @@
+// perseest - Test Unit
+// Uses mocha as the main testing framework and expect.js as the assert library
 const expect = require('expect.js');
 const Persistent = require('./perseest');
 

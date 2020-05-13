@@ -5,9 +5,9 @@
 /** Flexible interface for persistent entities using ES6 classes and mixins
  * and Brian Carlson's node-postgres
  *
- * @module persistent
+ * @module perseest
  * @requires pg
- * @requires ./validator
+ * @requires validate.js
  * @author jcondor */
 'use strict';
 const validate = require('validate.js');
