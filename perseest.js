@@ -14,6 +14,128 @@ const validate = require('validate.js');
 const { Pool } = require('pg');
 
 
+class PerseestConfig {
+  // TODO: Throw errors on bad parameters
+  /** Persistency configuration object
+   * @param {string} table - Table name for the persistent entities
+   * @param {string} primaryKey - Name of the parameter used as primary key
+   * @param {object} opt - Optional parameters
+   * @param {Array<String>} - Additional columns which can be used as univocal
+   *   identifiers for an instance
+   * @param {Array<String>} opt.columns - Additional columns
+   */
+  constructor(table, primaryKey, { ids=[], columns=[] }) {
+    this.table = table;
+    this.primaryKey = primaryKey;
+    this.ids = new Set(ids.concat(primaryKey));
+    this.columns = this.ids.union(columns);
+    this.hooks = { before: {}, after: {} };
+
+    // Default queries - TODO: Allow modifications
+    this.queries = {
+      save: ent => {
+        const [cols, vals] = entityCV(ent, this.columns);
+        return {
+          text: `INSERT INTO ${this.table} (${cols.join(', ')}) VALUES (${placeholders(cols.length)})`,
+          values: vals
+        };
+      },
+      fetch: (key,val) => ({
+        text: `SELECT * FROM ${this.table} WHERE ${key} = $1`,
+        values: [val]
+      }),
+      update: (ent,keys) => ({
+        text: `UPDATE ${this.table} SET ` +
+          keys.map((k,idx) => `${k} = $${idx+1}`).join(`, `) +
+          ` WHERE id = $${keys.length + 1};`,
+        values: keys.map(k => ent[k]).concat(ent[this.primaryKey])
+      }),
+      delete: (key,val) => ({
+        text: `DELETE FROM ${this.table} WHERE ${key} = $1`,
+        values: [val]
+      })
+    },
+
+
+    // TODO: Accept other than defaults
+    this.row2Entity = row => row,
+    this.pgError2Error = res =>
+      new Error(`${res.detail} (returned code ${res.code})`)
+  }
+
+  /** Setup for database connections
+   * @param {object|string} opt - node-postgres connection object or URI
+   * @returns undefined
+   */
+  setup(opt) {
+    if (validate.isString(opt))
+      opt = { connectionString: opt };
+    this.pool = new Pool(opt);
+  }
+
+  /** Cleanup the database connection/pool, ignoring eventual on-close errors
+   * @returns undefined
+   */
+  async cleanup() {
+    try { await this.pool.end(); }
+    catch (err) { console.error(err); }
+  }
+
+
+  /** Add a hook - Order is guaranteed across different calls
+   * @param {string} when - 'before' or 'after' hook
+   * @param {string} trigger - Hook trigger
+   * @param {function} hook - The hook function itself
+   * @throws 'when' must be within 'before' and 'after'
+   * @throws Trigger must be specified as a string
+   * @throws Hook must be a function
+   * @example
+   * addHook('after', 'insert', () => log('Entry successfully inserted'));
+   * @example
+   * addHook('before', 'save', user => {
+   *   if (!user.isValid())
+   *     throw new Error(`User ${user.name} is not valid`)
+   * });
+   * @returns undefined
+   */
+  addHook(when, trigger, hook) {
+    // Trigger can be 'before' or 'after'
+    if (! ['before', 'after'].includes(when))
+      throw new RangeError('\'when\' must be within [\'before\',\'after\']');
+
+    // Trigger must be identified by a string
+    if (!validate.isString(trigger))
+      throw new TypeError('Hook trigger must be specified as a string');
+
+    // Hook must be a function
+    if (!validate.isFunction(hook))
+      throw new TypeError('Hook must be a function');
+
+    // Push the hook in the hooks array, or initialize it if empty
+    if (!this.hooks[when][trigger])
+      this.hooks[when][trigger] = [hook];
+    else this.hooks[when][trigger].push(hook);
+  }
+
+
+  // Run an arbitrary array of hooks
+  async runHooks(when, trigger, ...args) {
+    const hooks = this.hooks[when][trigger];
+    if (!hooks) return;
+
+    for (const h of hooks) {
+      try {
+        const _ = h(args)
+        if (validate.isPromise(_))
+          await _;
+      }
+      catch (err) { throw err; }
+    }
+  }
+}
+
+
+
 function Mixin(Base) {
   if (!Base) Base = class {};
 
@@ -23,9 +145,11 @@ function Mixin(Base) {
       if (!this.exists) this.exists = false;
     }
 
-    /** Save the entity in the database
+
+    /** Save the entity in the database. If the entity exists already (i.e.
+     * 'this.exists === true', fallback to update()
      * @throws Database must be available and consistent
-     * @throws Entity unique fields must not be already present
+     * @throws Database must return no errors
      * @returns {boolean} true if the user was save
      */
     async save() {
@@ -35,13 +159,13 @@ function Mixin(Base) {
       }
 
       try {
-        await this.constructor.runHooks('before', 'save', this);
+        await this.constructor.db.runHooks('before', 'save', this);
 
         const response = await this.constructor.db.pool.query(
           this.constructor.db.queries.save(this));
         this.exists = true;
 
-        await this.constructor.runHooks('after', 'save', response, this);
+        await this.constructor.db.runHooks('after', 'save', response, this);
       } catch (err) {
         err = this.constructor.db.pgError2Error(err);
         throw err;
@@ -60,26 +184,28 @@ function Mixin(Base) {
     // TODO: Take variable arguments with ...
     async update(args) {
       // Handle different types for the given arguments
-      if (!args) args = this.constructor.db.persistent;
+      if (!args) args = [...this.constructor.db.columns]
       else if (validate.isString(args))
         args = [args];
-      else if (!validate.isArray(args))
-        throw new Error('Passed fields must be an Array or a single String');
+      else if (isIterable(args))
+        args = [...args];
+      else throw new Error(
+          'Passed fields must be an iterable object or a single String');
       const fields = args;
 
       // If specific fields are given, validate them
-      if (args) for (const f of fields)
-        if (! f in this.constructor.db.persistent)
+      for (const f of fields)
+        if (! f in this.constructor.db.columns)
           throw new Error(`${f} is not present in the database table`);
 
       // Query the database
       try {
-        await this.constructor.runHooks('before', 'update', this, fields);
+        await this.constructor.db.runHooks('before', 'update', this, fields);
 
         const response = await this.constructor.db.pool.query(
           this.constructor.db.queries.update(this, fields));
 
-        await this.constructor.runHooks('after', 'update', response, this);
+        await this.constructor.db.runHooks('after', 'update', response, this);
       }
       catch (err) { throw err; }
     }
@@ -92,11 +218,11 @@ function Mixin(Base) {
      * @returns {User|null} The fetched user, or null if it does not exist
      */
     static async fetch(field, value) {
-      if (!this.db.identifiers.includes(field))
+      if (!this.db.ids.has(field))
         throw new Error(`Field ${field} is not valid`);
 
       try {
-        await this.runHooks('before', 'fetch', field, value);
+        await this.db.runHooks('before', 'fetch', field, value);
 
         let ent;
         const response = await this.db.pool.query(
@@ -113,7 +239,7 @@ function Mixin(Base) {
         }
 
         // TODO: Pass also original field/value?
-        await this.runHooks('after', 'fetch', field, value);
+        await this.db.runHooks('after', 'fetch', field, value);
 
         return ent;
       }
@@ -142,16 +268,16 @@ function Mixin(Base) {
      * @returns {boolean} true if the user was removed, false if not found
      */
     static async delete(field, value) {
-      if (!this.db.identifiers.includes(field))
+      if (! field in this.db.ids)
         throw new Error(`${field} is not a valid identifier field`);
 
       try {
-        await this.runHooks('before', 'delete', field, value);
+        await this.db.runHooks('before', 'delete', field, value);
 
         const response = await this.db.pool.query(
           this.db.queries.delete(field, value));
 
-        await this.runHooks('after', 'delete', field, value);
+        await this.db.runHooks('after', 'delete', field, value);
 
         switch (response.rowCount) {
           case 0: return false;
@@ -162,126 +288,60 @@ function Mixin(Base) {
       }
       catch (err) { throw err; }
     }
-
-
-    /** Setup for database connections
-     * @param {object|string} opt - node-postgres connection object or URI
-     * @returns undefined
-     */
-    static dbSetup(opt) {
-      if (validate.isString(opt))
-        opt = { connectionString: opt };
-      this.db.pool = new Pool(opt);
-    }
-
-
-    /** Cleanup the database connection/pool, ignoring eventual on-close errors
-     * @returns undefined
-     */
-    static async dbCleanup() {
-      try { await this.db.pool.end(); }
-      catch (err) { console.error(err); }
-    }
-
-
-    // Run an arbitrary array of hooks
-    static async runHooks(when, trigger, ...args) {
-      // Skip if no hooks are found
-      if (!this.db.hooks || !this.db.hooks[when] ||
-        !this.db.hooks[when][trigger]) return;
-      const hooks = this.db.hooks[when][trigger];
-
-      // Accept a single function instead of an array
-      if (validate.isFunction(hooks))
-        hooks = [hooks];
-      else if (!validate.isArray(hooks)) throw new TypeError(
-         'First argument must be a function or an array of functions');
-
-      for (const h of hooks) {
-        try {
-          const _ = h(args)
-          if (validate.isPromise(_))
-            await _;
-        }
-        catch (err) { throw err; }
-      }
-    }
-
-
-    /** Add a hook - Order is guaranteed across different calls
-     * @param {string} when - 'before' or 'after' hook
-     * @param {string} trigger - Hook trigger
-     * @param {function} hook - The hook function itself
-     * @throws 'when' must be within 'before' and 'after'
-     * @throws Trigger must be specified as a string
-     * @throws Hook must be a function
-     * @example
-     * addHook('after', 'insert', () => log('Entry successfully inserted'));
-     * @example
-     * addHook('before', 'save', user => {
-     *   if (!user.isValid())
-     *     throw new Error(`User ${user.name} is not valid`)
-     * });
-     * @returns undefined
-     */
-    static addHook(when, trigger, hook) {
-      // Trigger can be 'before' or 'after'
-      if (! ['before', 'after'].includes(when))
-        throw new Error('\'when\' must be within [\'before\',\'after\']');
-
-      // Trigger must be identified by a string
-      if (!validate.isString(trigger))
-        throw new TypeError('Hook trigger must be specified as a string');
-
-      // Hook must be a function
-      if (!validate.isFunction(hook))
-        throw new TypeError('Hook must be a function');
-
-      // Handle empty or single-function hooks for the trigger
-      if (!this.db.hooks[when][trigger])
-        this.db.hooks[when][trigger] = [];
-      else if (validate.isFunction(this.db.hooks[when][trigger]))
-        this.db.hooks[when][trigger] = [ this.db.hooks[when][trigger] ];
-
-      // Actually push the hook in the trigger array
-      this.db.hooks[when][trigger].push(hook);
-    }
-
-
-    static db = composeDBObject();
   };
 }
 
 
-/** Generate a database configuration object
- * @param {object} obj - The configuration object
- * @param {Array<String>} obj.persistent - Array of class properties to be
- *   considered persistent
- * @param {Array<String>} obj.identifiers - Array of class properties which can
- *   be used as univocal identifiers for an instance
- * @param {object} obj.queries - Object which maps query generators
- * @param {object} obj.hooks - Hooks that will be executed before and after
- *   the query calls
- * @returns {object} An object to be used as database configuration
- */
-function composeDBObject(obj) {
-  const defaultObj = {
-    queries: {},
-    hooks: {
-      before: {},
-      after:  {}
-    },
-    row2Entity: row => row,
-    pgError2Error: res =>
-      new Error(`${res.detail} (returned code ${res.code})`)
-  };
-  return Object.assign(defaultObj, obj);
+// Superpowers for Set (other stuff may be added when the need arises)
+Set.prototype.union = function(other) {
+  if (!isIterable(other))
+    throw new TypeError('Other collection must be iterable');
+  const ret = new Set(this);
+  for (const elem of other)
+    ret.add(elem);
+  return ret;
 }
 
+
+// Generate values from 'start' to 'stop' (both inclusive)
+function *range(start, stop) {
+  for (let i=start; i <= stop; ++i)
+    yield i;
+}
+
+// Return a string of 'n' placeholders for a parameterized query
+function placeholders(n) {
+  return [...range(1,n)].map(n => `$${n}`).join(', ');
+}
+
+// Get columns-values in the form [ [columns], [values] ]
+// Order correspondence with the real database is not guaranteed
+function entityCV(ent, columns) {
+  let cols=[], vals=[];
+  for (const col of columns) {
+    cols.push(col);
+    vals.push(ent[col]);
+  }
+  return [cols, vals];
+}
+
+/*
+// Get columns-values in the form [ [column,value], ... ]
+// Order correspondence with the real database is not guaranteed
+function entityZippedCV(ent, columns) {
+  return columns.map(c => [c,ent[c]]);
+}
+*/
+
+// Is something implementing the iterable protocol?
+function isIterable(o) {
+  return o && typeof o[Symbol.iterator] === 'function';
+}
 
 
 module.exports = {
   Mixin: Mixin,
   Class: Mixin(),
-  composeDBObject: composeDBObject
+  Config: PerseestConfig,
+  test: { placeholders, range }
 };

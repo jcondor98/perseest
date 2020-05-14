@@ -1,9 +1,9 @@
 // perseest - Test Unit
 // Uses mocha as the main testing framework and expect.js as the assert library
 const expect = require('expect.js');
-const Persistent = require('./perseest');
+const Perseest = require('./perseest');
 
-class Mock extends Persistent.Class {
+class Mock extends Perseest.Class {
   constructor({ id=null, msg=null, uniq=null } = {}) {
     super();
     this.id = id || this.constructor.id++;
@@ -13,41 +13,34 @@ class Mock extends Persistent.Class {
 
   static id = 0;
 
-  static db = Persistent.composeDBObject({
-    persistent: ['id', 'msg', 'uniq'],
-    identifiers: ['id', 'uniq'],
-    primaryKey: 'id',
-
-    queries: {
-      save: ent => ({
-        text: 'INSERT INTO Mockies VALUES ($1,$2,$3)',
-        values: [ent.id, ent.msg, ent.uniq]
-      }),
-      fetch: (key,val) => ({
-        text: `SELECT * FROM Mockies WHERE ${key} = $1`,
-        values: [val]
-      }),
-      update: (ent,keys) => ({
-        text: 'UPDATE Mockies SET ' +
-          keys.map((k,idx) => `${k} = $${idx+1}`).join(', ') +
-          ` WHERE id = $${keys.length + 1};`,
-        values: keys.map(k => ent[k]).concat(ent[Mock.db.primaryKey])
-      }),
-      delete: (key,val) => ({
-        text: `DELETE FROM Mockies WHERE ${key} = $1`,
-        values: [val]
-      })
-    },
+  static db = new Perseest.Config('Mockies', 'id', {
+    columns: ['msg'],
+    ids: ['uniq'],
   });
-
 }
 
+
+// TODO: Remove after inspecting
+/*
+const m = new Mock();
+console.log(Mock.db.queries.save(m));
+console.log(Mock.db.queries.update(m,['id']));
+console.log(Mock.db.queries.fetch('id', 'avc'));
+console.log(Mock.db.queries.delete('id', 'swaga'));
+console.log(Perseest.test.placeholders(4));
+console.log(Perseest.test.placeholders(1));
+console.log(Perseest.test.placeholders(0));
+
+process.exit(0);
+*/
+
+
 before(async () => {
-  Mock.dbSetup(process.env['PG_TEST_URI']);
+  Mock.db.setup(process.env['PG_TEST_URI']);
   await Mock.db.pool.query('DELETE FROM Mockies');
 });
 
-after(async () => await Mock.dbCleanup());
+after(async () => await Mock.db.cleanup());
 
 
 describe('A class implementing persistency', function() {
@@ -133,7 +126,10 @@ describe('A class implementing persistency', function() {
 
 describe('Query hooks', function() {
   let Local;
-  beforeEach(() => Local = Persistent.Mixin());
+  beforeEach(() => Local = class extends Mock {});
+  function resetHooks() {
+    Local.db.hooks = { before: {}, after: {} };
+  }
 
 
   it('should initially be empty if none is specified', () => {
@@ -146,16 +142,18 @@ describe('Query hooks', function() {
 
   describe('should be added successfully', function() {
     specify('for a single hook', () => {
-      Local.addHook('before', 'something', () => {});
+      resetHooks();
+      Local.db.addHook('before', 'something', () => {});
       expect(Local.db.hooks.before.something).to.be.an('array');
       expect(Local.db.hooks.before.something).to.have.length(1);
     });
 
     specify('for multiple hooks', () => {
-      const LIMIT = 16;
-      const rnd = Math.ceil((Math.random() + 0.1) * LIMIT - 1);
-      for (const n of range(0,rnd))
-        Local.addHook('before', 'something', () => {});
+      resetHooks();
+      const MULT = 8;
+      const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1);
+      for (const n of range(0, rnd-1))
+        Local.db.addHook('before', 'something', () => {});
       expect(Local.db.hooks.before.something).to.be.an('array');
       expect(Local.db.hooks.before.something).to.have.length(rnd);
     });
@@ -171,36 +169,36 @@ describe('Query hooks', function() {
         ['falsy', false]
       ].forEach(([testCase,obj]) => {
         specify(testCase, () =>
-          expect(() => Local.addHook('after', 'something', obj))
+          expect(() => Local.db.addHook('after', 'something', obj))
             .to.throwError());
       });
     });
 
     describe('when temporal trigger is invalid', () =>
-      expect(() => Local.addHook('sometimes', 'something', () => {}))
+      expect(() => Local.db.addHook('sometimes', 'something', () => {}))
         .to.throwError());
   });
 
   it('should be ran successfully and in order when called', async () => {
-    const LIMIT = 8;
-    const rnd = Math.ceil((Math.random() + 0.1) * LIMIT - 1);
+    const MULT = 8;
+    const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1) + 1;
     let executed = Array(rnd);
-    for (const n of range(0, rnd))
-      Local.addHook('before', 'doh', () => executed[n] = n);
+    for (const n of range(0, rnd-1))
+      Local.db.addHook('before', 'doh', () => executed[n] = n);
     expect(Local.db.hooks.before.doh).to.have.length(rnd)
 
     try {
-      await Local.runHooks('before', 'doh');
+      await Local.db.runHooks('before', 'doh');
     } catch (err) {
       throw err;
     }
 
-    expect(executed).to.eql([...range(0,rnd)]);
+    expect(executed).to.eql([...range(0,rnd-1)]);
   });
 });
 
 
 function *range(start, stop) {
-  for (let i=start; i < stop; ++i)
+  for (let i=start; i <= stop; ++i)
     yield i;
 }
