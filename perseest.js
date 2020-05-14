@@ -15,7 +15,7 @@ const { Pool } = require('pg');
 
 
 class PerseestConfig {
-  // TODO: Throw errors on bad parameters
+  // TODO: Validity checks should be more strict
   /** Persistency configuration object
    * @param {string} table - Table name for the persistent entities
    * @param {string} primaryKey - Name of the parameter used as primary key
@@ -25,6 +25,15 @@ class PerseestConfig {
    * @param {Array<String>} opt.columns - Additional columns
    */
   constructor(table, primaryKey, { ids=[], columns=[] }) {
+    if (!validate.isString(table) || table === '')
+      throw new TypeError('table must be a non-blank string');
+    if (!validate.isString(primaryKey) || primaryKey === '')
+      throw new TypeError('primaryKey must be a non-blank string');
+    if (!isIterable(ids))
+      throw new TypeError('ids must be an iterable collection');
+    if (!isIterable(columns))
+      throw new TypeError('columns must be an iterable collection');
+
     this.table = table;
     this.primaryKey = primaryKey;
     this.ids = new Set(ids.concat(primaryKey));
@@ -139,7 +148,7 @@ class PerseestConfig {
 function Mixin(Base) {
   if (!Base) Base = class {};
 
-  return class extends Base {
+  return class Perseest extends Base {
     constructor(...args) {
       super(args);
       if (!this.exists) this.exists = false;

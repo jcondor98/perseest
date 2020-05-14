@@ -2,6 +2,15 @@
 // Uses mocha as the main testing framework and expect.js as the assert library
 const expect = require('expect.js');
 const Perseest = require('./perseest');
+const { ConfigFactory } = require('./factories');
+
+// Setup factories
+ConfigFactory.init = {
+  table: 'Mockies',
+  primaryKey: 'id',
+  columns: ['msg'],
+  ids: ['uniq']
+};
 
 class Mock extends Perseest.Class {
   constructor({ id=null, msg=null, uniq=null } = {}) {
@@ -12,28 +21,8 @@ class Mock extends Perseest.Class {
   }
 
   static id = 0;
-
-  static db = new Perseest.Config('Mockies', 'id', {
-    columns: ['msg'],
-    ids: ['uniq'],
-  });
+  static db = ConfigFactory.create();
 }
-
-
-// TODO: Remove after inspecting
-/*
-const m = new Mock();
-console.log(Mock.db.queries.save(m));
-console.log(Mock.db.queries.update(m,['id']));
-console.log(Mock.db.queries.fetch('id', 'avc'));
-console.log(Mock.db.queries.delete('id', 'swaga'));
-console.log(Perseest.test.placeholders(4));
-console.log(Perseest.test.placeholders(1));
-console.log(Perseest.test.placeholders(0));
-
-process.exit(0);
-*/
-
 
 before(async () => {
   Mock.db.setup(process.env['PG_TEST_URI']);
@@ -43,7 +32,34 @@ before(async () => {
 after(async () => await Mock.db.cleanup());
 
 
-describe('A class implementing persistency', function() {
+describe('Perseest.Config', function() {
+  specify('should be created with good parameters', () =>
+    expect(() => ConfigFactory.create()).to.not.throwError(console.error));
+    
+  describe('should throw an error when created with', function() {
+    specify('blank table name', () =>
+      expect(() => ConfigFactory.create({ table: '' })).to.throwError());
+
+    specify('non-string table name', () =>
+      expect(() => ConfigFactory.create({ table: {a:1}})).to.throwError());
+
+    specify('blank primary key', () =>
+      expect(() => ConfigFactory.create({ primaryKey: '' })).to.throwError());
+
+    specify('non-string primary key', () =>
+      expect(() => ConfigFactory.create({ primaryKey: {a: 321321} }))
+        .to.throwError());
+
+    for (attr of ['ids', 'columns'])
+      specify(`non-iterable ${attr}collection`, () => {
+        const args = Object.defineProperty({}, attr, {a:1,b:2});
+        expect(ConfigFactory.create).withArgs(args).to.throwError();
+      });
+  });
+});
+
+
+describe('A class extending Perseest.Class', function() {
   let mocky;
   beforeEach(async () => {
     mocky = new Mock();
