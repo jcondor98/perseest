@@ -129,6 +129,7 @@ class PerseestConfig {
 
 
   // Run an arbitrary array of hooks
+  // Should be only used by Perseest internally
   async runHooks(when, trigger, ...args) {
     const hooks = this.hooks[when][trigger];
     if (!hooks) return;
@@ -140,6 +141,33 @@ class PerseestConfig {
           await _;
       }
       catch (err) { throw err; }
+    }
+  }
+
+
+  /** Flush the hooks
+   * @param {string} when - Temporal trigger
+   * @param {string} trigger - Hook trigger
+   * @example ent.db.flushHooks()  // Flush all the hooks
+   * @example ent.db.flushHooks('before')  // Flush all the before-hooks
+   * @example
+   * // Flush all the after-hooks triggered by doh
+   * ent.db.flushHooks('after', 'doh')
+   * @example
+   * // Flush all the before-hooks and after-hooks triggered by doh
+   * ent.db.flushHooks(null, 'doh')
+   * @returns undefined
+   */
+  flushHooks(when=null, trigger=null) {
+    if (when && (!validate.isString(when) || ! when in ['before', 'after']))
+      throw new TypeError('\'when\' can only be \'before\' or \'after\'');
+    if (trigger === '' || (trigger && !validate.isString(trigger)))
+      throw new TypeError('Trigger must be a non-blank string');
+
+    const times = when ? [when] : ['before', 'after'];
+    for (const t of times) {
+      if (trigger) delete this.hooks[t][trigger];
+      else this.hooks[t] = {};
     }
   }
 }

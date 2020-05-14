@@ -206,4 +206,52 @@ describe('Query hooks', function() {
 
     expect(executed).to.eql([...range(0,rnd-1)]);
   });
+
+  describe('flushing', function() {
+    beforeEach(() => {
+      for (const when of ['before', 'after']) {
+        Local.db.addHook(when, 'alice', () => {});
+        Local.db.addHook(when, 'bob', () => {});
+      }
+    });
+
+    it('should remove all hooks without arguments', function() {
+      Local.db.flushHooks();
+      expect(Local.db.hooks.before).to.eql({});
+      expect(Local.db.hooks.after).to.eql({});
+    });
+
+    it('should remove related hooks only with trigger', function() {
+      Local.db.flushHooks(null, 'bob');
+      expect(Local.db.hooks.before.alice).to.not.be.empty();
+      expect(Local.db.hooks.after.alice).to.not.be.empty();
+      expect(Local.db.hooks.before).to.not.have.property('bob');
+      expect(Local.db.hooks.after).to.not.have.property('bob');
+    });
+
+    it('should remove related hooks only with moment', function() {
+      Local.db.flushHooks('before');
+      expect(Local.db.hooks.before).to.be.empty();
+      expect(Local.db.hooks.after).to.not.be.empty();
+    });
+
+    it('should remove related hooks with trigger and moment', function() {
+      Local.db.flushHooks('before', 'alice');
+      expect(Local.db.hooks.before).to.not.have.property('alice');
+      expect(Local.db.hooks.after.alice).to.not.be.empty();
+      expect(Local.db.hooks.before.bob).to.not.be.empty();
+      expect(Local.db.hooks.after.bob).to.not.be.empty();
+    });
+
+    describe('should throw an error with', function() {
+      specify('non-string \'when\'', () =>
+        expect(() => Local.db.flushHooks({})).to.throwError());
+
+      specify('non-string trigger', () =>
+        expect(() => Local.db.flushHooks('before', () => {}).to.throwError()));
+
+      specify('\'when\' not within [\'before\',\'after\']', () =>
+        expect(() => Local.db.flushHooks('abc').to.throwError()));
+    });
+  });
 });
