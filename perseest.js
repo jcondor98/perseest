@@ -241,21 +241,21 @@ function Mixin(Base) {
      * @returns undefined
      */
     // TODO: Take variable arguments with ...
-    async update(args) {
+    async update(...args) {
       // Handle different types for the given arguments
-      if (!args) args = [...this.constructor.db.columns]
-      else if (validate.isString(args))
-        args = [args];
-      else if (help.isIterable(args))
-        args = [...args];
-      else throw new Error(
-          'Passed keys must be an iterable object or a single String');
-      const keys = args;
+      if (args.length === 0)
+        args = [...this.constructor.db.columns];
+      else if (!validate.isString(args[0]) && help.isIterable(args[0]))
+        args = args[0];
+      const keys = validate.isArray(args) ? args : [...args];
 
       // If specific keys are given, validate them
-      for (const f of keys)
-        if (! f in this.constructor.db.columns)
-          throw new Error(`${f} is not present in the database table`);
+      for (const k of keys) {
+        if (!validate.isString(k))
+          throw new TypeError('Columns must be specified as strings');
+        if (! k in this.constructor.db.columns)
+          throw new Error(`${k} is not present in the database table`);
+      }
 
       // Query the database
       try {

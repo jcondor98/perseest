@@ -9,15 +9,16 @@ const { range } = require('./helpers');
 ConfigFactory.init = {
   table: 'Mockies',
   primaryKey: 'id',
-  columns: ['msg'],
+  columns: ['msg', 'msg2'],
   ids: ['uniq']
 };
 
 class Mock extends Perseest.Class {
-  constructor({ id=null, msg=null, uniq=null } = {}) {
+  constructor({ id=null, msg=null, msg2=null, uniq=null } = {}) {
     super();
     this.id = id || this.constructor.id++;
     this.msg = msg || 'abcde';
+    this.msg2 = msg2 || 'fghijk';
     this.uniq = uniq || this.id;
   }
 
@@ -27,6 +28,15 @@ class Mock extends Perseest.Class {
 
 before(async () => {
   Mock.db.setup(process.env['PG_TEST_URI']);
+  await Mock.db.pool.query('DROP TABLE Mockies').catch(() => {}); // Ignore errors
+  await Mock.db.pool.query(
+`CREATE TABLE Mockies(
+  id INTEGER PRIMARY KEY, 
+  uniq VARCHAR UNIQUE NOT NULL,
+  msg VARCHAR,
+  msg2 VARCHAR);
+  `);
+
   await Mock.db.pool.query('DELETE FROM Mockies');
 });
 
@@ -52,7 +62,7 @@ describe('Perseest.Config', function() {
         .to.throwError());
 
     for (attr of ['ids', 'columns'])
-      specify(`non-iterable ${attr}collection`, () => {
+      specify(`non-iterable ${attr} collection`, () => {
         const args = Object.defineProperty({}, attr, {a:1,b:2});
         expect(ConfigFactory.create).withArgs(args).to.throwError();
       });
@@ -109,18 +119,71 @@ describe('A class extending Perseest.Class', function() {
 
 
   describe('when updated', function() {
-    specify('should be successful if consistent', async () => {
-      try {
-        await mocky.save();
-        mocky.msg = 'ciaone';
-        await mocky.update();
-        const mocky2 = await Mock.fetch('id', mocky.id);
-        expect(mocky2).to.not.equal(null);
-        expect(mocky2.id).to.equal(mocky.id);
-        expect(mocky2.msg).to.equal(mocky.msg);
-      } catch(err) {
-        throw err;
-      }
+    describe('if consistend should be successful ', function() {
+      beforeEach(async () =>
+        await mocky.save().then(()=>{}).catch(err=> { throw err }));
+
+      specify('with no arguments passed (i.e. all columns)', async () => {
+        try {
+          mocky.msg = 'ciaone';
+          await mocky.update();
+          const mocky2 = await Mock.fetch('id', mocky.id);
+          expect(mocky2).to.not.equal(null);
+          expect(mocky2.id).to.equal(mocky.id);
+          expect(mocky2.msg).to.equal(mocky.msg);
+        } catch(err) {
+          throw err;
+        }
+      });
+
+      specify('with a single argument passed as a string', async () => {
+        try {
+          mocky.msg = 'ciaone';
+          mocky.uniq = 'fhsghdafvgbhfwa'
+          await mocky.update('msg');
+          const mocky2 = await Mock.fetch('id', mocky.id);
+          expect(mocky2).to.not.equal(null);
+          expect(mocky2.id).to.equal(mocky.id); // Not updated
+          expect(mocky2.msg).to.equal(mocky.msg);
+          expect(mocky2.uniq).to.not.equal(mocky.uniq); // Should not be updated
+        } catch(err) {
+          throw err;
+        }
+      });
+
+      specify('with arguments passed as rest parameters', async () => {
+        try {
+          mocky.msg = 'ciaone';
+          mocky.msg2 = 'megaprontone';
+          mocky.uniq = 'fhsghdafvgbhfwa'
+          await mocky.update('msg', 'msg2');
+          const mocky2 = await Mock.fetch('id', mocky.id);
+          expect(mocky2).to.not.equal(null);
+          expect(mocky2.id).to.equal(mocky.id); // Not updated
+          expect(mocky2.msg).to.equal(mocky.msg);
+          expect(mocky2.msg2).to.equal(mocky.msg2);
+          expect(mocky2.uniq).to.not.equal(mocky.uniq); // Should not be updated
+        } catch(err) {
+          throw err;
+        }
+      });
+
+      specify('with arguments passed as an iterable collection', async () => {
+        try {
+          mocky.msg = 'ciaone';
+          mocky.msg2 = 'megaprontone';
+          mocky.uniq = 'fhsghdafvgbhfwa'
+          await mocky.update(new Set(['msg', 'msg2']));
+          const mocky2 = await Mock.fetch('id', mocky.id);
+          expect(mocky2).to.not.equal(null);
+          expect(mocky2.id).to.equal(mocky.id); // Not updated
+          expect(mocky2.msg).to.equal(mocky.msg);
+          expect(mocky2.msg2).to.equal(mocky.msg2);
+          expect(mocky2.uniq).to.not.equal(mocky.uniq); // Should not be updated
+        } catch(err) {
+          throw err;
+        }
+      });
     });
 
     specify('with fields violating constraints should throw an error', done => {
