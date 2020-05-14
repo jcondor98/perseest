@@ -2,7 +2,8 @@
 // Uses mocha as the main testing framework and expect.js as the assert library
 const expect = require('expect.js');
 const Perseest = require('./perseest');
-const { ConfigFactory } = require('./factories');
+const { PerseestFactory, ConfigFactory } = require('./factories');
+const { range } = require('./helpers');
 
 // Setup factories
 ConfigFactory.init = {
@@ -142,11 +143,7 @@ describe('A class extending Perseest.Class', function() {
 
 describe('Query hooks', function() {
   let Local;
-  beforeEach(() => Local = class extends Mock {});
-  function resetHooks() {
-    Local.db.hooks = { before: {}, after: {} };
-  }
-
+  beforeEach(() => Local = PerseestFactory.createClass());
 
   it('should initially be empty if none is specified', () => {
     for (moment of ['before', 'after']) {
@@ -158,14 +155,12 @@ describe('Query hooks', function() {
 
   describe('should be added successfully', function() {
     specify('for a single hook', () => {
-      resetHooks();
       Local.db.addHook('before', 'something', () => {});
       expect(Local.db.hooks.before.something).to.be.an('array');
       expect(Local.db.hooks.before.something).to.have.length(1);
     });
 
     specify('for multiple hooks', () => {
-      resetHooks();
       const MULT = 8;
       const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1);
       for (const n of range(0, rnd-1))
@@ -212,9 +207,3 @@ describe('Query hooks', function() {
     expect(executed).to.eql([...range(0,rnd-1)]);
   });
 });
-
-
-function *range(start, stop) {
-  for (let i=start; i <= stop; ++i)
-    yield i;
-}

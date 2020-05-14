@@ -22,4 +22,13 @@ class ConfigFactory {
 }
 
 
-module.exports = { ConfigFactory };
+class PerseestFactory {
+  static createClass() {
+    return class extends Perseest.Class {
+      static db = ConfigFactory.create();
+    }
+  }
+}
+
+
+module.exports = { PerseestFactory, ConfigFactory };

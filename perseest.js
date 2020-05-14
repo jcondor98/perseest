@@ -12,6 +12,7 @@
 'use strict';
 const validate = require('validate.js');
 const { Pool } = require('pg');
+const help = require('./helpers');
 
 
 class PerseestConfig {
@@ -29,9 +30,9 @@ class PerseestConfig {
       throw new TypeError('table must be a non-blank string');
     if (!validate.isString(primaryKey) || primaryKey === '')
       throw new TypeError('primaryKey must be a non-blank string');
-    if (!isIterable(ids))
+    if (!help.isIterable(ids))
       throw new TypeError('ids must be an iterable collection');
-    if (!isIterable(columns))
+    if (!help.isIterable(columns))
       throw new TypeError('columns must be an iterable collection');
 
     this.table = table;
@@ -43,9 +44,9 @@ class PerseestConfig {
     // Default queries - TODO: Allow modifications
     this.queries = {
       save: ent => {
-        const [cols, vals] = entityCV(ent, this.columns);
+        const [cols, vals] = help.entityCV(ent, this.columns);
         return {
-          text: `INSERT INTO ${this.table} (${cols.join(', ')}) VALUES (${placeholders(cols.length)})`,
+          text: `INSERT INTO ${this.table} (${cols.join(', ')}) VALUES (${help.placeholders(cols.length)})`,
           values: vals
         };
       },
@@ -196,7 +197,7 @@ function Mixin(Base) {
       if (!args) args = [...this.constructor.db.columns]
       else if (validate.isString(args))
         args = [args];
-      else if (isIterable(args))
+      else if (help.isIterable(args))
         args = [...args];
       else throw new Error(
           'Passed fields must be an iterable object or a single String');
@@ -301,56 +302,8 @@ function Mixin(Base) {
 }
 
 
-// Superpowers for Set (other stuff may be added when the need arises)
-Set.prototype.union = function(other) {
-  if (!isIterable(other))
-    throw new TypeError('Other collection must be iterable');
-  const ret = new Set(this);
-  for (const elem of other)
-    ret.add(elem);
-  return ret;
-}
-
-
-// Generate values from 'start' to 'stop' (both inclusive)
-function *range(start, stop) {
-  for (let i=start; i <= stop; ++i)
-    yield i;
-}
-
-// Return a string of 'n' placeholders for a parameterized query
-function placeholders(n) {
-  return [...range(1,n)].map(n => `$${n}`).join(', ');
-}
-
-// Get columns-values in the form [ [columns], [values] ]
-// Order correspondence with the real database is not guaranteed
-function entityCV(ent, columns) {
-  let cols=[], vals=[];
-  for (const col of columns) {
-    cols.push(col);
-    vals.push(ent[col]);
-  }
-  return [cols, vals];
-}
-
-/*
-// Get columns-values in the form [ [column,value], ... ]
-// Order correspondence with the real database is not guaranteed
-function entityZippedCV(ent, columns) {
-  return columns.map(c => [c,ent[c]]);
-}
-*/
-
-// Is something implementing the iterable protocol?
-function isIterable(o) {
-  return o && typeof o[Symbol.iterator] === 'function';
-}
-
-
 module.exports = {
   Mixin: Mixin,
   Class: Mixin(),
-  Config: PerseestConfig,
-  test: { placeholders, range }
+  Config: PerseestConfig
 };
