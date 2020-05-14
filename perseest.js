@@ -21,9 +21,13 @@ class PerseestConfig {
    * @param {string} table - Table name for the persistent entities
    * @param {string} primaryKey - Name of the parameter used as primary key
    * @param {object} opt - Optional parameters
-   * @param {Array<String>} - Additional columns which can be used as univocal
-   *   identifiers for an instance
-   * @param {Array<String>} opt.columns - Additional columns
+   * @param {Iterable<String>} opt.ids - Additional columns which can be used
+   *   as univocal identifiers for an instance
+   * @param {Iterable<String>} opt.columns - Additional columns
+   * @throws Table must be a non-blank string
+   * @throws PrimaryKey must be a non-blank string
+   * @throws Ids must be an iterable collection
+   * @throws Columns must be an iterable collection
    */
   constructor(table, primaryKey, { ids=[], columns=[] }) {
     if (!validate.isString(table) || table === '')
@@ -96,7 +100,7 @@ class PerseestConfig {
    * @param {string} when - 'before' or 'after' hook
    * @param {string} trigger - Hook trigger
    * @param {function} hook - The hook function itself
-   * @throws 'when' must be within 'before' and 'after'
+   * @throws 'when' must be falsy or a string within 'before' and 'after'
    * @throws Trigger must be specified as a string
    * @throws Hook must be a function
    * @example
@@ -111,7 +115,8 @@ class PerseestConfig {
   addHook(when, trigger, hook) {
     // Trigger can be 'before' or 'after'
     if (! ['before', 'after'].includes(when))
-      throw new RangeError('\'when\' must be within [\'before\',\'after\']');
+      throw new TypeError(
+        '\'when\' must be falsy or a string within [\'before\',\'after\']');
 
     // Trigger must be identified by a string
     if (!validate.isString(trigger))
@@ -130,6 +135,7 @@ class PerseestConfig {
 
   // Run an arbitrary array of hooks
   // Should be only used by Perseest internally
+  // TODO: Document?
   async runHooks(when, trigger, ...args) {
     const hooks = this.hooks[when][trigger];
     if (!hooks) return;
@@ -174,10 +180,23 @@ class PerseestConfig {
 
 
 
+/** Generate a base class for a database-persistent subclass or data structure
+ * from another class (i.e. function-style mixin
+ * @param {Class} Base - Base class to extend
+ * @example
+ * // Create a persistent user from a user which does not support a database
+ * class VolatileUser { ... }
+ * class PerseestentUser extends Perseest.Mixin(VolatileUser) {
+ *   static db = new PerseestConfig(table, pk, { ... });
+ * }
+ * @returns {Class} Extended (i.e. mixed) class to be used as the base class
+ *   for a persistent subclass or record
+ */
 function Mixin(Base) {
   if (!Base) Base = class {};
 
-  return class Perseest extends Base {
+  class PerseestClass extends Base {
+    /** Base class for a database-persistent subclass or data structure */
     constructor(...args) {
       super(args);
       if (!this.exists) this.exists = false;
@@ -188,7 +207,7 @@ function Mixin(Base) {
      * 'this.exists === true', fallback to update()
      * @throws Database must be available and consistent
      * @throws Database must return no errors
-     * @returns {boolean} true if the user was save
+     * @returns {undefined}
      */
     async save() {
       if (this.exists) {
@@ -211,12 +230,14 @@ function Mixin(Base) {
     }
 
 
-    /** Update user fields selectively
+    /** Update entity columns selectively
      * @param {array} args - Fields to update
      * @throws Database must be available
-     * @throws Specified fields must be valid persistent properties
-     * @example something.update();  // Update all the user fields
-     * @example user.update(['email','name']);  // Update just email and name
+     * @throws Specified keys must be valid persistent properties
+     * @example something.update();  // Update all the entity keys
+     * @example
+     * // Update just email and name for a user
+     * user.update(['email','name']);
      * @returns undefined
      */
     // TODO: Take variable arguments with ...
@@ -228,20 +249,20 @@ function Mixin(Base) {
       else if (help.isIterable(args))
         args = [...args];
       else throw new Error(
-          'Passed fields must be an iterable object or a single String');
-      const fields = args;
+          'Passed keys must be an iterable object or a single String');
+      const keys = args;
 
-      // If specific fields are given, validate them
-      for (const f of fields)
+      // If specific keys are given, validate them
+      for (const f of keys)
         if (! f in this.constructor.db.columns)
           throw new Error(`${f} is not present in the database table`);
 
       // Query the database
       try {
-        await this.constructor.db.runHooks('before', 'update', this, fields);
+        await this.constructor.db.runHooks('before', 'update', this, keys);
 
         const response = await this.constructor.db.pool.query(
-          this.constructor.db.queries.update(this, fields));
+          this.constructor.db.queries.update(this, keys));
 
         await this.constructor.db.runHooks('after', 'update', response, this);
       }
@@ -250,21 +271,21 @@ function Mixin(Base) {
 
 
     /** Fetch an entity from the database using an arbitrary identifier
-     * @param {string} name - Username
+     * @param {string} key - Identifier column
+     * @param {*} value - Identifier value
      * @throws Database must be available and consistent
-     * @throws Username must be valid
-     * @returns {User|null} The fetched user, or null if it does not exist
+     * @returns {*|null} The fetched entity, or null if it does not exist
      */
-    static async fetch(field, value) {
-      if (!this.db.ids.has(field))
-        throw new Error(`Field ${field} is not valid`);
+    static async fetch(key, value) {
+      if (!this.db.ids.has(key))
+        throw new Error(`Field ${key} is not valid`);
 
       try {
-        await this.db.runHooks('before', 'fetch', field, value);
+        await this.db.runHooks('before', 'fetch', key, value);
 
         let ent;
         const response = await this.db.pool.query(
-          this.db.queries.fetch(field, value));
+          this.db.queries.fetch(key, value));
 
         switch (response.rowCount) {
           case 0:
@@ -276,8 +297,8 @@ function Mixin(Base) {
           default: throw new Error('Too many results were returned');
         }
 
-        // TODO: Pass also original field/value?
-        await this.db.runHooks('after', 'fetch', field, value);
+        // TODO: Pass also original key/value?
+        await this.db.runHooks('after', 'fetch', response, ent);
 
         return ent;
       }
@@ -297,25 +318,25 @@ function Mixin(Base) {
     }
 
 
-    /** Remove a user by arbitrary field
-     * @param {string} field - Field use as identifier
+    /** Remove a user by arbitrary key-value pair (key must be an identifier)
+     * @param {string} key - Field use as identifier
      * @param {string} value - Identifier value
      * @throws Database must be available
      * @throws Field must be usable as an univocal identifier
      * @throws Identifier value must be valid
      * @returns {boolean} true if the user was removed, false if not found
      */
-    static async delete(field, value) {
-      if (! field in this.db.ids)
-        throw new Error(`${field} is not a valid identifier field`);
+    static async delete(key, value) {
+      if (! key in this.db.ids)
+        throw new Error(`${key} is not a valid identifier key`);
 
       try {
-        await this.db.runHooks('before', 'delete', field, value);
+        await this.db.runHooks('before', 'delete', key, value);
 
         const response = await this.db.pool.query(
-          this.db.queries.delete(field, value));
+          this.db.queries.delete(key, value));
 
-        await this.db.runHooks('after', 'delete', field, value);
+        await this.db.runHooks('after', 'delete', response, key, value);
 
         switch (response.rowCount) {
           case 0: return false;
@@ -326,7 +347,9 @@ function Mixin(Base) {
       }
       catch (err) { throw err; }
     }
-  };
+  }
+
+  return PerseestClass;
 }
 
 
