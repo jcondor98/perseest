@@ -66,8 +66,29 @@ describe('A class extending Perseest.Class', function() {
     mocky = new Mock();
   });
 
-  describe('should be successfully', function() {
-    specify('saved with consistent fields', async () => {
+
+  describe('when fetched', function() {
+    specify('by existent id should return an existent entity', async () => {
+      try {
+        await mocky.save();
+        const mocky2 = await Mock.fetch('id', mocky.id);
+        expect(mocky2).to.not.equal(null);
+        expect(mocky2.id).to.equal(mocky.id);
+      } catch (err) {
+        throw err;
+      }
+    });
+
+    specify('fetching by inexistent id should throw an error', done => {
+      Mock.fetch('blerulerule', 'DOH!')
+        .then(user => done(new Error(`Fetched user ${user}`)))
+        .catch(() => done());
+    });
+  });
+
+
+  describe('when saved', function() {
+    specify('should be successful if consistent', async () => {
       try {
         expect(mocky.exists).to.be(false);
         await mocky.save();
@@ -76,7 +97,19 @@ describe('A class extending Perseest.Class', function() {
       catch (err) { throw err; }
     });
 
-    specify('updated with consistent fields', async () => {
+    specify('with fields violating constraints should throw an error', done => {
+      mocky.save()
+        .then(() => {
+          mocky.exists = false;
+          return mocky.save();
+        }).then(() => done(new Error('User should not have been saved')))
+        .catch(() => done());
+    });
+  });
+
+
+  describe('when updated', function() {
+    specify('should be successful if consistent', async () => {
       try {
         await mocky.save();
         mocky.msg = 'ciaone';
@@ -90,51 +123,40 @@ describe('A class extending Perseest.Class', function() {
       }
     });
 
-    specify('fetched by existent identifier', async () => {
-      try {
-        await mocky.save();
-        const mocky2 = await Mock.fetch('id', mocky.id);
-        expect(mocky2).to.not.equal(null);
-        expect(mocky2.id).to.equal(mocky.id);
-      } catch (err) {
-        throw err;
-      }
-    });
-
-    specify('deleted by existent identifier', async () => {
-      try {
-        await mocky.save();
-        expect(await Mock.fetch('id', mocky.id)).to.not.be(null);
-        await mocky.delete();
-        expect(await Mock.fetch('id', mocky.id)).to.be(null);
-      } catch (err) {
-        throw err;
-      }
-    });
-  });
-
-
-  describe('should throw an error', function() {
-    specify('when saving with fields violating some constraint', done => {
-      mocky.save()
-        .then(() => {
-          mocky.exists = false;
-          return mocky.save();
-        }).then(() => done(new Error('User should not have been saved')))
-        .catch(() => done());
-    });
-
-    specify('when updating fields violating some constraint', done => {
+    specify('with fields violating constraints should throw an error', done => {
       mocky.save()
         .then(() => mocky.update('uniq'))
         .then(() => (new Mock({ uniq: mocky.id })).save())
         .then(() => done(new Error('User should not have been saved')))
         .catch(() => done());
     });
+  });
 
-    specify('when fetching by inexistent field', done => {
-      Mock.fetch('blerulerule', 'DOH!')
-        .then(user => done(new Error(`Fetched user ${user}`)))
+
+  describe('when deleted', function() {
+    specify('by existent id should return true and be removed', async () => {
+      try {
+        await mocky.save();
+        expect(await Mock.fetch('id', mocky.id)).to.not.be(null);
+        expect(await mocky.delete()).to.be(true);
+        expect(await Mock.fetch('id', mocky.id)).to.be(null);
+      } catch (err) {
+        throw err;
+      }
+    });
+
+    specify('by valid but inexistent id should return false', async () => {
+      try { // Do not save mocky
+        expect(await Mock.fetch('id', mocky.id)).to.be(null);
+        expect(await mocky.delete()).to.be(false);
+      } catch (err) {
+        throw err;
+      }
+    });
+
+    specify('by invalid id should throw an error', done => {
+      Mock.delete('homersimpson', 'doh')
+        .then(res => done(new Error(`User was deleted with result ${res}`)))
         .catch(() => done());
     });
   });

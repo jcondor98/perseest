@@ -9,12 +9,19 @@
 
 
 /** Generate values from 'start' to 'stop' (both inclusive)
+ * If start > stop, the range is generated in descending order
+ * @example range(1,5)  // 1, 2, 3, 4, 5
+ * @example range(1,-3)  // 1, 0, -1, -2, -3
+ * @example range(1,1)  // 1
  * @param {number} start
  * @param {number} stop
  * @returns {Generator} The previous value incremented by 1 at each iteration
  */
 function *range(start, stop) {
-  for (let i=start; i <= stop; ++i)
+  // TODO: Check type
+  const inc = start < stop ? x => ++x : x => --x;
+  const cmp = start < stop ? (x,y) => x <= y : (x,y) => x >= y;
+  for (let i=start; cmp(i, stop); i = inc(i))
     yield i;
 }
 
@@ -24,7 +31,7 @@ function *range(start, stop) {
  * @returns {string} A string in the form '$1, $2, $3, ... , $n'
  */
 function placeholders(n) {
-  return [...range(1,n)].map(n => `$${n}`).join(', ');
+  return n > 0 ? [...range(1,n)].map(n => `$${n}`).join(', ') : '';
 }
 
 /** Get columns-values in the form [ [columns], [values] ]
