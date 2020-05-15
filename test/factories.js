@@ -1,5 +1,5 @@
 'use strict';
-const Perseest = require('./perseest');
+const Perseest = require('../lib/perseest');
 
 
 class ConfigFactory {

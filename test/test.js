@@ -1,9 +1,9 @@
 // perseest - Test Unit
 // Uses mocha as the main testing framework and expect.js as the assert library
 const expect = require('expect.js');
-const Perseest = require('./perseest');
+const Perseest = require('../lib/perseest');
 const { PerseestFactory, ConfigFactory } = require('./factories');
-const { range } = require('./helpers');
+const { range } = require('../lib/helpers');
 
 // Setup factories
 ConfigFactory.init = {

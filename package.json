@@ -1,10 +1,11 @@
 {
   "name": "perseest",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Persistent entities using node-postgres and ES6 classes and mixins",
-  "main": "perseest.js",
+  "files": [ "/lib" ],
+  "main": "lib/perseest.js",
   "scripts": {
-    "test": "mocha test.js"
+    "test": "mocha test/test.js"
   },
   "keywords": [
     "persistent",

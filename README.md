@@ -203,7 +203,7 @@ es6
 
 ```
 beforeUpdate(ent, keys)
-beforeUpdate(res, ent)
+afterUpdate(res, ent)
 ```
 
 To the before-update hook, just the current entity instance is passed.
@@ -215,7 +215,7 @@ To the after-update hook, the response and the current entity instance is passed
 
 ```
 beforeDelete(key, value)
-beforeDelete(res, key, value)
+afterDelete(res, key, value)
 ```
 
 To the before-delete hook, just the current entity instance is passed.
