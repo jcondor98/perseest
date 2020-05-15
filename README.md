@@ -26,6 +26,9 @@ Testing requires:
 Given these requirements, all you have to do is to pass a connection URI with
 the shell environment variable `PG_TEST_URI`; then run `npm test`.
 
+[nyc](https://istanbul.js.org/) is used for test coverage, by running
+`npm run coverage`.
+
 It is assumed that mocha is installed _globally_.
 
 ## Usage

@@ -7,7 +7,8 @@
   ],
   "main": "lib/perseest.js",
   "scripts": {
-    "test": "mocha test/test.js"
+    "test": "mocha test/*",
+    "coverage": "./node_modules/nyc/bin/nyc.js npm run test"
   },
   "keywords": [
     "persistent",
@@ -19,7 +20,8 @@
   "author": "jcondor",
   "license": "MIT",
   "devDependencies": {
-    "expect.js": "^0.3.1"
+    "expect.js": "^0.3.1",
+    "nyc": "^15.0.1"
   },
   "dependencies": {
     "pg": "^8.2.0",

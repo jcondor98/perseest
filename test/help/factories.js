@@ -1,5 +1,7 @@
+// perseest - Factories for test units
+// jcondor (Paolo Lucchesi)
 'use strict';
-const Perseest = require('../lib/perseest');
+const Perseest = require('../../lib/perseest');
 
 
 class ConfigFactory {
@@ -17,8 +19,13 @@ class ConfigFactory {
     return new Perseest.Config(table, primaryKey, { ids: ids, columns: columns });
   }
 
-
-  static init = {}; // To be set by the test unit
+  // TODO: Make this flexible
+  static init = {
+    table: 'Mockies',
+    primaryKey: 'id',
+    columns: ['msg', 'msg2'],
+    ids: ['uniq']
+  };
 }
 
 
@@ -31,4 +38,4 @@ class PerseestFactory {
 }
 
 
-module.exports = { PerseestFactory, ConfigFactory };
+module.exports = { Perseest: PerseestFactory, Config: ConfigFactory};
