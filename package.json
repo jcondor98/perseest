@@ -1,6 +1,6 @@
 {
   "name": "perseest",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Persistent entities using node-postgres and ES6 classes and mixins",
   "files": [ "/lib" ],
   "main": "lib/perseest.js",

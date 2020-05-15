@@ -153,8 +153,9 @@ Let's take again our user example:
 class User extends Perseest.Class { ... }
 
 // Hook which validates a user before saving it to the database
-function validateBeforeSave(ent) {
-  if (!user.isValid)
+// Hook parameters are passed in an object (which we are deconstructing)
+function validateBeforeSave({ ent }) {
+  if (!ent.isValid)
     throw new Error('User is not valid - Cannot save');
 }
 
@@ -170,57 +171,51 @@ try {
 }
 ```
 
-### Hook interface
-Every hook takes different parameters, depending on the related query: this is
-not very elegant, and I will change this if possible. However, this is an
-interface for the basic query operations
-
-#### Save hooks
-
-```
-beforeSave(ent)
-afterSave(res, ent)
-```
-
-To the before-save hook, just the current entity instance is passed.
-
-To the after-save hook, the response and the current entity instance is passed.
-
-
-#### Fetch hooks
+#### Hook interface
+Assume that different queries (having a different nature) need to cosider
+different things (such as entity instance, involved columns names etc...), so
+does the query hooks; for this reason, the parameters passed to a hook are
+wrapped in an instance of `Perseest.HookParameters`. Such an instance can be
+constructed considering different parameters; below a few examples are given:
 
 ```
-beforeFetch(key, value)
-afterFetch(res, ent)
+// Construct from an entity
+const params = new Perseest.HookParameters({
+  conf: Entity.db ent: someEntity });
+console.log(params.ent);  // someEntity
+console.log(params.key);  // Name of the primary key column
+console.log(params.kval); // Value for the primary key
+console.log(params.columns); // All the column names
+console.log(params.values);  // All the column values
+
+const params2 = new Perseest.HookParameters({
+  conf: Entity.db, key: 'id', kval: 123 });
+console.log(params.key);  // 'id'
+console.log(params.kval); // 123
+console.log(params.ent);  // CAVEAT: this is undefined!
 ```
 
-To the before-fetch hook, a univocal key and its value is passed
+Every field specified falsy is deduced, except for `conf` and `ent`; leaving
+such fields blank will not raise an error, however it could lead to throwing
+errors or undefined behaviours when a hook tries to reference them.
 
-To the after-fetch hook, the response and the current entity instance is passed.
-es6 
+In general, you have no reason to create such objects manually, as it is
+automatically done by the query performers.
 
-#### Update hooks
+A `Perseest.HookParameters` instance, if correctly created, implements the
+following fields:
 
-```
-beforeUpdate(ent, keys)
-afterUpdate(res, ent)
-```
+Field | Description
+:-:|---
+`conf` | `Perseest.Config` instance for the persistent class
+`ent` | Entity instance
+`key` | Name of the column used as univocal id
+`kval` | Value for `key`
+`columns` | Names of the involved columns
+`values` | Values corresponding to `columns`, in the same order
 
-To the before-update hook, just the current entity instance is passed.
-
-To the after-update hook, the response and the current entity instance is passed.
-
-
-#### Delete hooks
-
-```
-beforeDelete(key, value)
-afterDelete(res, key, value)
-```
-
-To the before-delete hook, just the current entity instance is passed.
-
-To the after-delete hook, the response and the current entity instance is passed.
+Apart from those, other fields can be added, and such fields will be remembered
+across different hooks calls, allowing a middleware-like approach.
 
 
 
