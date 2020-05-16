@@ -5,7 +5,7 @@ const expect = require('expect.js');
 const ConfigFactory = require('./help/factories').Config;
 
 describe('Perseest.Config', function() {
-  specify('should be created with good parameters', () =>
+  it('should be created with good parameters', () =>
     expect(() => ConfigFactory.create()).to.not.throwError());
     
   describe('should throw an error when created with', function() {
@@ -24,10 +24,8 @@ describe('Perseest.Config', function() {
 
     for (const attr of ['ids', 'columns'])
       specify(`non-iterable ${attr} collection`, () => {
-        const args = Object.defineProperty({}, attr, {a:1,b:2});
-        expect(ConfigFactory.create).withArgs(args).to.throwError();
+        const args = Object.fromEntries([ [attr, { a: 1, b: 2 }] ]);
+        expect(() => ConfigFactory.create(args)).to.throwError();
       });
   });
 });
-
-
