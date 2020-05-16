@@ -1,14 +1,14 @@
 {
   "name": "perseest",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Persistent entities using node-postgres and ES6 classes and mixins",
   "files": [
     "/lib"
   ],
   "main": "lib/perseest.js",
   "scripts": {
-    "test": "mocha test/*",
-    "coverage": "./node_modules/nyc/bin/nyc.js npm run test"
+    "test": "npx mocha test/*",
+    "coverage": "npx nyc npm run test"
   },
   "keywords": [
     "persistent",
@@ -20,7 +20,9 @@
   "author": "jcondor",
   "license": "MIT",
   "devDependencies": {
+    "dotenv": "^8.2.0",
     "expect.js": "^0.3.1",
+    "mocha": "^7.1.2",
     "nyc": "^15.0.1"
   },
   "dependencies": {
