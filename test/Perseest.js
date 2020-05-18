@@ -3,12 +3,13 @@
 // jcondor (Paolo Lucchesi)
 'use strict'
 const expect = require('expect.js')
+const sinon = require('sinon')
 const PerseestFactory = require('./help/factories').Perseest
 const { Mock } = require('./help/mock')
 const { range } = require('../lib/helpers')
 
 // Import environment variables
-const result = require('dotenv').config({ path: './environment/test.env' })
+require('dotenv').config({ path: './environment/test.env' })
 
 before(async () => {
   Mock.db.setup(process.env.POSTGRES_URI)
@@ -44,10 +45,25 @@ describe('A class extending Perseest.Class', function () {
       }
     })
 
-    specify('fetching by inexistent id should throw an error', done => {
-      Mock.fetch('blerulerule', 'DOH!')
-        .then(user => done(new Error(`Fetched user ${user}`)))
-        .catch(() => done())
+    describe('should throw an error', function () {
+      specify('on inexistent id column name', done => {
+        Mock.fetch('blerulerule', 'DOH!')
+          .then(user => done(new Error(`Fetched user ${user}`)))
+          .catch(() => done())
+      })
+
+      specify('if querying the database fails', async () => {
+        const fake = sinon.fake.rejects('Query error')
+        sinon.replace(Mock.db.pool, 'query', fake)
+        try {
+          await Mock.fetch('id', mocky.id)
+        } catch (err) {
+          sinon.restore()
+          return
+        }
+        sinon.restore()
+        throw new Error('Fetching user should have thrown an error')
+      })
     })
   })
 
@@ -60,13 +76,38 @@ describe('A class extending Perseest.Class', function () {
       } catch (err) { throw err }
     })
 
-    specify('with fields violating constraints should throw an error', done => {
-      mocky.save()
-        .then(() => {
-          mocky.exists = false
-          return mocky.save()
-        }).then(() => done(new Error('User should not have been saved')))
-        .catch(() => done())
+    describe('should throw an error', function () {
+      specify('if falling back to update() fails', async () => {
+        const fake = sinon.fake.rejects('Rejecting update method')
+        sinon.replace(mocky, 'update', fake)
+        mocky.exists = true
+        try {
+          await mocky.save()
+        } catch (err) {
+          expect(fake.callCount).to.be(1)
+          sinon.restore()
+          return
+        }
+        throw new Error('User should not have been saved/updated')
+      })
+
+      specify('with fields violating constraints', done => {
+        mocky.save()
+          .then(() => {
+            mocky.exists = false
+            return mocky.save()
+          }).then(() => done(new Error('User should not have been saved')))
+          .catch(() => done())
+      })
+    })
+
+    specify('should fall back to update() if existent', async () => {
+      const fake = sinon.fake.resolves(true)
+      sinon.replace(mocky, 'update', fake)
+      mocky.exists = true
+      expect(await mocky.save()).to.be(true)
+      expect(fake.callCount).to.be(1)
+      sinon.restore()
     })
   })
 
@@ -191,10 +232,25 @@ describe('A class extending Perseest.Class', function () {
       }
     })
 
-    specify('by invalid id should throw an error', done => {
-      Mock.delete('homersimpson', 'doh')
-        .then(res => done(new Error(`User was deleted with result ${res}`)))
-        .catch(() => done())
+    describe('should throw an error', function () {
+      specify('if querying the database fails', async () => {
+        const fake = sinon.fake.rejects('Query error')
+        sinon.replace(Mock.db.pool, 'query', fake)
+        try {
+          await Mock.delete('id', mocky.id)
+        } catch (err) {
+          sinon.restore()
+          return
+        }
+        sinon.restore()
+        throw new Error('Fetching user should have thrown an error')
+      })
+
+      specify('on invalid id column name', done => {
+        Mock.delete('homersimpson', 'doh')
+          .then(res => done(new Error(`User was deleted with result ${res}`)))
+          .catch(() => done())
+      })
     })
   })
 })
@@ -255,7 +311,7 @@ describe('Query hooks', function () {
     })
   })
 
-  describe('running', function () {
+  describe('running', function () { // TODO: Refactor with sinon
     const MULT = 8
     const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1) + 1
     const executed = {
@@ -321,6 +377,31 @@ describe('Query hooks', function () {
         Local.db.runHooks('before', { s: 'boblovesalice' })
           .then(() => done('runHooks() should have thrown an error'))
           .catch(() => done())
+      })
+    })
+
+    describe('with promises', function () {
+      it('should throw an error when rejected', async () => {
+        const hook = sinon.fake.rejects('Rejecting hook')
+        Local.db.addHook('before', 'alice', hook)
+        try {
+          await Local.db.runHooks('before', 'alice')
+        } catch (err) {
+          expect(hook.callCount).to.be(1)
+          return
+        }
+        throw new Error('Hook should have thrown an error')
+      })
+
+      it('should be successful when resolved', async () => {
+        const hook = sinon.fake.resolves()
+        Local.db.addHook('before', 'alice', hook)
+        try {
+          await Local.db.runHooks('before', 'alice')
+          expect(hook.callCount).to.be(1)
+        } catch (err) {
+          throw err
+        }
       })
     })
   })

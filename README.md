@@ -24,7 +24,7 @@ Testing requires:
 * A postgres database
 
 Given these requirements, all you have to do is to pass a connection URI with
-the shell environment variable `PG_TEST_URI`; then run `npx test`.
+the shell environment variable `POSTGRES_URI`; then run `npm test`.
 
 [nyc](https://istanbul.js.org/) is used for test coverage, by running
 `npm run coverage`.
