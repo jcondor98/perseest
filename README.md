@@ -2,8 +2,15 @@
 The _perseest_ package provides an ES6 mixin (and a base class equivalent) to
 make (almost) any class and data structure storable in a database, in a fast
 and painless way. The concept is to add a (thin) layer between a class and the
-postgres database handler, such that the developer can interface the database
-in a _declarative way_.
+postgres database handler. This allows the developer to handle persistent
+entities such that:
+
+* The approach is _declarative_ instead of being _imperative_
+* The actual definition of a class or type is _completely separated_ from the
+way inwhich its instances are made persistent
+* If an application module does not need to fetch/store/delete instances in the
+database, it can use the exact same class definition without knowing anything
+about these operations
 
 The direct database handling is delegated to the
 [node-postgres](https://node-postgres.com) package.
@@ -13,8 +20,12 @@ production
 
 ## Installation
 
-For now, if you want to use perseest, you have to clone the git repo and
-`require ('some/path/perseest')`. An NPM package will be published ASAP.
+A packaged version of perseest is available on npm
+[at this link](https://www.npmjs.com/package/perseest). To install it, run:
+
+```
+npm install perseest
+```
 
 ## Testing
 Testing requires:
@@ -37,11 +48,11 @@ Basically, to make a ES6 class persistent you have to make it extend
 member given by an instance of `Perseest.Config`. For example, consider a user
 class which has to save its username, email and hashed password:
 
-```
+```js
 const Perseest = require('perseest');
 
 // Using Perseest.Class
-class User extends Perseest {
+class User extends Perseest.Class {
   constructor(name, email, hash) {
     super(); // Perseest constructors do not need any argument
     this.name = name;
@@ -52,9 +63,9 @@ class User extends Perseest {
   ...
 
   static db = new Perseest.Config({
-    primaryKey: 'name',
-    ids: ['email'],
-    columns: ['hash']
+    primaryKey: 'name',  // Primary key
+    ids: ['email'],      // Additional columns usable as a univocal id
+    columns: ['hash']    // Additional persistent properties
   });
 }
 
@@ -78,12 +89,16 @@ class User extends Perseest.Mixin(VolatileUser) {
 }
 ```
 
+**NOTE**: Repeating column names in `ids` or `columns` (e.g. rewrite the
+primary key in the `columns` property) is not required, but it can be done
+without raising any error.
+
 ### Using the perseest interface
 You can use basic, ActiveRecord inspired, methods to interface with the
 database in a handy way. Assumed that we have a user persistent class, here are
 a few examples:
 
-```
+```js
 const user = new User(/* ... */);
 
 // Set up the database
@@ -150,7 +165,7 @@ inserting boilerplate code etc.
 
 Let's take again our user example:
 
-```
+```js
 class User extends Perseest.Class { ... }
 
 // Hook which validates a user before saving it to the database
@@ -179,7 +194,7 @@ does the query hooks; for this reason, the parameters passed to a hook are
 wrapped in an instance of `Perseest.HookParameters`. Such an instance can be
 constructed considering different parameters; below a few examples are given:
 
-```
+```js
 // Construct from an entity
 const params = new Perseest.HookParameters({
   conf: Entity.db ent: someEntity });
