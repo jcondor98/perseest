@@ -1,4 +1,10 @@
 # perseest
+
+**WARNING**: As I stated in the previous commit, this project is under heavy
+development and should not be used in production. Even if I plan to create a
+stable codebase , for now the API is changing often. If you like perseest, you
+should stick to a version and update very carefully.
+
 The _perseest_ package provides an ES6 mixin (and a base class equivalent) to
 make (almost) any class and data structure storable in a database, in a fast
 and painless way. The concept is to add a (thin) layer between a class and the
@@ -15,8 +21,6 @@ about these operations
 The direct database handling is delegated to the
 [node-postgres](https://node-postgres.com) package.
 
-**NOTE**: This project is under heavy development and should not be used in
-production
 
 ## Installation
 
@@ -148,7 +152,11 @@ performs parameterised queries, but it _does not escapes table and column names_
 Even if no table or column name not found in the Perseest.Config object will
 (hopefully) be used, checking the sanity of them is completely _up to you_.
 
+**EDIT**: A brand new query interface had been implemented; I will make possible
+to add user-defined queries ASAP
+
 ### Query hooks
+
 You may want to do some operations or checking something before or after
 performing queries: this can be done by passing to the Perseest.Config instance
 some functions, which we call _hooks_, with the `addHook` method.

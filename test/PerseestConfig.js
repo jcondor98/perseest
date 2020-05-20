@@ -5,6 +5,7 @@
 const expect = require('expect.js')
 const sinon = require('sinon')
 const ConfigFactory = require('./help/factories').Config
+const help = require('../lib/helpers')
 
 describe('Perseest.Config', function () {
   it('should be created with good parameters', () => ConfigFactory.create())
@@ -92,7 +93,7 @@ describe('Database', function () {
       Config.setup(process.env.POSTGRES_URI)
       sinon.replace(Config.pool, 'end', fake)
       try {
-        const ret = await Config.cleanup();
+        const ret = await Config.cleanup()
         expect(ret).to.be.an(Error)
       } catch (err) {
         throw err
@@ -103,5 +104,105 @@ describe('Database', function () {
   after(() => {
     sinon.restore()
     Config.setup(process.env.POSTGRES_URI)
+  })
+})
+
+describe('Query hook interface', function () {
+  let Config
+  beforeEach(() => Config = ConfigFactory.create())
+
+  describe('adding', function () {
+    let query
+    beforeEach(() => query = Config.queries.get('save'))
+
+    describe('should be successful', function () {
+      specify('for a single hook', () => {
+        Config.addHook('before', 'save', () => {})
+        expect(query.hooks.before).to.have.length(1)
+      })
+
+      specify('for multiple hooks', () => {
+        const MULT = 8
+        const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1)
+        for (const n of help.range(1, rnd)) { Config.addHook('before', 'save', () => {}) }
+        expect(query.hooks.before).to.have.length(rnd)
+      })
+    })
+
+    describe('should fail', function () {
+      describe('when they are', function () {
+        [['an object', { a: 'b' }],
+          ['a string', 'ciaone'],
+          ['an array', ['a', 'b', 'c']],
+          ['undefined', undefined],
+          ['null', null],
+          ['falsy', false]
+        ].forEach(([testCase, obj]) => {
+          specify(testCase, () =>
+            expect(() => Config.addHook('after', 'save', obj)).to.throwError())
+        })
+      })
+
+      specify('when trigger is not a string', () =>
+        expect(() => Config.addHook('before', { a: 1, b: 2 }, () => {}))
+          .to.throwError())
+
+      specify('when temporal trigger is invalid', () =>
+        expect(() => Config.addHook('sometimes', 'save', () => {}))
+          .to.throwError())
+    })
+  })
+
+  describe('flushing', function () {
+    let q1, q2
+    beforeEach(() => {
+      for (const when of ['before', 'after']) {
+        Config.addHook(when, 'save', () => {})
+        Config.addHook(when, 'fetch', () => {})
+      }
+      q1 = Config.queries.get('save')
+      q2 = Config.queries.get('fetch')
+    })
+
+    it('should remove all hooks without arguments', function () {
+      Config.flushHooks()
+      expect(q1.hooks.before).to.be.empty()
+      expect(q1.hooks.after).to.be.empty()
+    })
+
+    it('should remove related hooks only with trigger', function () {
+      Config.flushHooks(null, 'save')
+      expect(q2.hooks.before).to.not.be.empty()
+      expect(q2.hooks.after).to.not.be.empty()
+      expect(q1.hooks.before).to.be.empty()
+      expect(q1.hooks.after).to.be.empty()
+    })
+
+    it('should remove related hooks only with moment', function () {
+      Config.flushHooks('before')
+      expect(q1.hooks.before).to.be.empty()
+      expect(q2.hooks.before).to.be.empty()
+      expect(q1.hooks.after).to.not.be.empty()
+      expect(q2.hooks.after).to.not.be.empty()
+    })
+
+    it('should remove related hooks with trigger and moment', function () {
+      Config.flushHooks('before', 'save')
+      expect(q2.hooks.before).to.not.be.empty()
+      expect(q2.hooks.after).to.not.be.empty()
+      expect(q1.hooks.after).to.not.be.empty()
+      expect(q1.hooks.before).to.be.empty()
+    })
+
+    describe('should throw an error with', function () {
+      specify('non-string \'when\'', () =>
+        expect(() => Config.flushHooks({})).to.throwError())
+
+      specify('non-string trigger', () =>
+        expect(() => Config.flushHooks('before', () => {})).to.throwError())
+
+      specify('\'when\' not within [\'before\',\'after\']', () =>
+        expect(() => Config.flushHooks('abc')).to.throwError())
+    })
   })
 })
