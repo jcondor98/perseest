@@ -1,4 +1,5 @@
-// perseest - Test Unit for Perseest.Config
+// perseest - Test Unit for perseest configuration object
+// Uses mocha as the main testing framework and expect.js as the assert library
 // jcondor (Paolo Lucchesi)
 'use strict'
 const expect = require('expect.js')
@@ -6,8 +7,7 @@ const sinon = require('sinon')
 const ConfigFactory = require('./help/factories').Config
 
 describe('Perseest.Config', function () {
-  it('should be created with good parameters', () =>
-    expect(() => ConfigFactory.create()).to.not.throwError())
+  it('should be created with good parameters', () => ConfigFactory.create())
 
   describe('should throw an error when created with', function () {
     specify('blank table name', () =>

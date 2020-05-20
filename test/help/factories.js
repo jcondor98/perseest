@@ -1,7 +1,7 @@
 // perseest - Factories for test units
 // jcondor (Paolo Lucchesi)
 'use strict';
-const Perseest = require('../../lib/perseest');
+const Config = require('../../lib/PerseestConfig');
 
 
 class ConfigFactory {
@@ -16,7 +16,7 @@ class ConfigFactory {
     const columns = props.includes('columns') ?
       opt.columns : this.init.columns;
 
-    return new Perseest.Config(table, primaryKey, { ids: ids, columns: columns });
+    return new Config(table, primaryKey, { ids: ids, columns: columns });
   }
 
   // TODO: Make this flexible
@@ -29,6 +29,7 @@ class ConfigFactory {
 }
 
 
+/* TODO: Fix
 class PerseestFactory {
   static createClass() {
     return class extends Perseest.Class {
@@ -36,6 +37,7 @@ class PerseestFactory {
     }
   }
 }
+*/
 
 
-module.exports = { Perseest: PerseestFactory, Config: ConfigFactory};
+module.exports = { /* Perseest: PerseestFactory, */ Config: ConfigFactory };

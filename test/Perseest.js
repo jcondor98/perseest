@@ -1,12 +1,10 @@
-// perseest - Test Unit
+// perseest - Test Unit for the perseest class/mixin
 // Uses mocha as the main testing framework and expect.js as the assert library
 // jcondor (Paolo Lucchesi)
 'use strict'
 const expect = require('expect.js')
 const sinon = require('sinon')
-const PerseestFactory = require('./help/factories').Perseest
 const { Mock } = require('./help/mock')
-const { range } = require('../lib/helpers')
 
 // Import environment variables
 require('dotenv').config({ path: './environment/test.env' })
@@ -29,7 +27,7 @@ after(async () => await Mock.db.cleanup())
 
 describe('A class extending Perseest.Class', function () {
   let mocky
-  beforeEach(async () => {
+  beforeEach(() => {
     mocky = new Mock()
   })
 
@@ -251,207 +249,6 @@ describe('A class extending Perseest.Class', function () {
           .then(res => done(new Error(`User was deleted with result ${res}`)))
           .catch(() => done())
       })
-    })
-  })
-})
-
-describe('Query hooks', function () {
-  let Local
-
-  it('should initially be empty if none is specified', () => {
-    Local = PerseestFactory.createClass()
-    for (const moment of ['before', 'after']) {
-      expect(Local.db.hooks).to.have.property(moment)
-      expect(Object.getOwnPropertyNames(Local.db.hooks[moment]))
-        .to.have.length(0)
-    }
-  })
-
-  describe('adding', function () {
-    beforeEach(() => Local = PerseestFactory.createClass())
-
-    describe('should be added successfully', function () {
-      specify('for a single hook', () => {
-        Local.db.addHook('before', 'something', () => {})
-        expect(Local.db.hooks.before.something).to.be.an('array')
-        expect(Local.db.hooks.before.something).to.have.length(1)
-      })
-
-      specify('for multiple hooks', () => {
-        const MULT = 8
-        const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1)
-        for (const n of range(0, rnd - 1)) { Local.db.addHook('before', 'something', () => {}) }
-        expect(Local.db.hooks.before.something).to.be.an('array')
-        expect(Local.db.hooks.before.something).to.have.length(rnd)
-      })
-    })
-
-    describe('should not be added successfully', function () {
-      describe('when they are', function () {
-        [['an object', { a: 'b' }],
-          ['a string', 'ciaone'],
-          ['an array', ['a', 'b', 'c']],
-          ['undefined', undefined],
-          ['null', null],
-          ['falsy', false]
-        ].forEach(([testCase, obj]) => {
-          specify(testCase, () =>
-            expect(() => Local.db.addHook('after', 'something', obj))
-              .to.throwError())
-        })
-      })
-
-      specify('when trigger is not a string', () =>
-        expect(() => Local.db.addHook('before', { a: 1, b: 2 }, () => {}))
-          .to.throwError())
-
-      specify('when temporal trigger is invalid', () =>
-        expect(() => Local.db.addHook('sometimes', 'something', () => {}))
-          .to.throwError())
-    })
-  })
-
-  describe('running', function () { // TODO: Refactor with sinon
-    const MULT = 8
-    const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1) + 1
-    const executed = {
-      before: { alice: new Array(rnd), bob: new Array(rnd) },
-      after: { alice: new Array(rnd), bob: new Array(rnd) }
-    }
-
-    beforeEach(() => {
-      Local = PerseestFactory.createClass()
-      for (const t of ['alice', 'bob']) {
-        executed.before[t].fill(null)
-        executed.after[t].fill(null)
-        for (const n of [...range(0, rnd - 1)]) {
-          Local.db.addHook('before', t, () => executed.before[t][n] = n)
-          Local.db.addHook('after', t, () => executed.after[t][n] = n)
-        }
-      }
-      expect(Local.db.hooks.before.alice).to.have.length(rnd) // Just to be sure
-    })
-
-    describe('should be successful', function () {
-      specify('with no arguments, running all the hooks', async () => {
-        try { await Local.db.runHooks() } catch (err) { throw err }
-        expect(executed.before.alice).to.eql([...range(0, rnd - 1)])
-        expect(executed.after.alice).to.eql([...range(0, rnd - 1)])
-        expect(executed.before.bob).to.eql([...range(0, rnd - 1)])
-        expect(executed.after.bob).to.eql([...range(0, rnd - 1)])
-      })
-
-      specify('just with temporal trigger', async () => {
-        try { await Local.db.runHooks('after') } catch (err) { throw err }
-        expect(executed.before.alice).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.before.bob).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.after.alice).to.eql([...range(0, rnd - 1)])
-        expect(executed.after.bob).to.eql([...range(0, rnd - 1)])
-      })
-
-      specify('just with action trigger', async () => {
-        try { await Local.db.runHooks(null, 'bob') } catch (err) { throw err }
-        expect(executed.before.alice).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.after.alice).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.before.bob).to.eql([...range(0, rnd - 1)])
-        expect(executed.after.bob).to.eql([...range(0, rnd - 1)])
-      })
-
-      specify('with both temporal and action trigger', async () => {
-        try { await Local.db.runHooks('before', 'alice') } catch (err) { throw err }
-        expect(executed.after.alice).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.before.bob).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.after.bob).to.not.eql([...range(0, rnd - 1)])
-        expect(executed.before.alice).to.eql([...range(0, rnd - 1)])
-      })
-    })
-
-    describe('should throw an error', function () {
-      specify('with temporal trigger not within [\'before\',\'after\']', done => {
-        Local.db.runHooks('ovolollo')
-          .then(() => done('runHooks() should have thrown an error'))
-          .catch(() => done())
-      })
-
-      specify('with truthy and non-string trigger', done => {
-        Local.db.runHooks('before', { s: 'boblovesalice' })
-          .then(() => done('runHooks() should have thrown an error'))
-          .catch(() => done())
-      })
-    })
-
-    describe('with promises', function () {
-      it('should throw an error when rejected', async () => {
-        const hook = sinon.fake.rejects('Rejecting hook')
-        Local.db.addHook('before', 'alice', hook)
-        try {
-          await Local.db.runHooks('before', 'alice')
-        } catch (err) {
-          expect(hook.callCount).to.be(1)
-          return
-        }
-        throw new Error('Hook should have thrown an error')
-      })
-
-      it('should be successful when resolved', async () => {
-        const hook = sinon.fake.resolves()
-        Local.db.addHook('before', 'alice', hook)
-        try {
-          await Local.db.runHooks('before', 'alice')
-          expect(hook.callCount).to.be(1)
-        } catch (err) {
-          throw err
-        }
-      })
-    })
-  })
-
-  describe('flushing', function () {
-    beforeEach(() => {
-      Local = PerseestFactory.createClass()
-      for (const when of ['before', 'after']) {
-        Local.db.addHook(when, 'alice', () => {})
-        Local.db.addHook(when, 'bob', () => {})
-      }
-    })
-
-    it('should remove all hooks without arguments', function () {
-      Local.db.flushHooks()
-      expect(Local.db.hooks.before).to.eql({})
-      expect(Local.db.hooks.after).to.eql({})
-    })
-
-    it('should remove related hooks only with trigger', function () {
-      Local.db.flushHooks(null, 'bob')
-      expect(Local.db.hooks.before.alice).to.not.be.empty()
-      expect(Local.db.hooks.after.alice).to.not.be.empty()
-      expect(Local.db.hooks.before).to.not.have.property('bob')
-      expect(Local.db.hooks.after).to.not.have.property('bob')
-    })
-
-    it('should remove related hooks only with moment', function () {
-      Local.db.flushHooks('before')
-      expect(Local.db.hooks.before).to.be.empty()
-      expect(Local.db.hooks.after).to.not.be.empty()
-    })
-
-    it('should remove related hooks with trigger and moment', function () {
-      Local.db.flushHooks('before', 'alice')
-      expect(Local.db.hooks.before).to.not.have.property('alice')
-      expect(Local.db.hooks.after.alice).to.not.be.empty()
-      expect(Local.db.hooks.before.bob).to.not.be.empty()
-      expect(Local.db.hooks.after.bob).to.not.be.empty()
-    })
-
-    describe('should throw an error with', function () {
-      specify('non-string \'when\'', () =>
-        expect(() => Local.db.flushHooks({})).to.throwError())
-
-      specify('non-string trigger', () =>
-        expect(() => Local.db.flushHooks('before', () => {})).to.throwError())
-
-      specify('\'when\' not within [\'before\',\'after\']', () =>
-        expect(() => Local.db.flushHooks('abc')).to.throwError())
     })
   })
 })

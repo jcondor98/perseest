@@ -1,10 +1,10 @@
 // perseest - Setup routines and common stuff for test units
 // jcondor (Paolo Lucchesi)
 'use strict';
-const Perseest = require('../../lib/perseest');
+const PerseestClass = require('../../lib/perseest').PerseestClass;
 const ConfigFactory = require('./factories').Config;
 
-class Mock extends Perseest.Class {
+class Mock extends PerseestClass {
   constructor({ id=null, msg=null, msg2=null, uniq=null } = {}) {
     super();
     this.id = id || this.constructor.id++;
