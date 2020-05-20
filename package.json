@@ -3,7 +3,8 @@
   "version": "1.3.0",
   "description": "Persistent entities using node-postgres and ES6 classes and mixins",
   "files": [
-    "/lib", "index.js"
+    "/lib",
+    "index.js"
   ],
   "main": "index.js",
   "scripts": {
