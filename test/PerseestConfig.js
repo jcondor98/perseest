@@ -87,12 +87,13 @@ describe('Database', function () {
       }
     })
 
-    it('should never throw an error if closing the pool fails', async () => {
+    it('should return (and not throw) an error if closing the pool fails', async () => {
       const fake = sinon.fake.rejects(new Error('Rejected'))
       Config.setup(process.env.POSTGRES_URI)
       sinon.replace(Config.pool, 'end', fake)
       try {
-        await Config.cleanup()
+        const ret = await Config.cleanup();
+        expect(ret).to.be.an(Error)
       } catch (err) {
         throw err
       }
