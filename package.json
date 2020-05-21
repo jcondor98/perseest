@@ -9,7 +9,8 @@
   "main": "index.js",
   "scripts": {
     "test": "npx mocha test/*",
-    "coverage": "npx nyc npm run test"
+    "coverage": "npx nyc npm run test",
+    "lint": "npx standard --fix {lib,test}/**/*.js || echo 'standard.js detected some problems'"
   },
   "keywords": [
     "persistent",
