@@ -20,7 +20,7 @@ const falsyTestCases = [
   ['null', null]
 ]
 
-describe('A query object', function () {
+describe('Perseest.Query', function () {
   describe('when created', function () {
     it('should be successful with good parameters', () => {
       const q = new Query({ name: 'q', generate: () => {} })
@@ -41,8 +41,10 @@ describe('A query object', function () {
       })
 
       describe('with generator being', function () {
-        negativeTestCases.concat(falsyTestCases)
-          .concat([['a string', 'abc']]).forEach(([testCase, obj]) =>
+        negativeTestCases
+          .concat(falsyTestCases)
+          .concat([['a string', 'abc']])
+          .forEach(([testCase, obj]) =>
             specify(testCase, () => {
               expect(() => new Query({ name: 'q', generate: obj }))
                 .to.throwError()
@@ -50,23 +52,50 @@ describe('A query object', function () {
       })
 
       describe('with transformer being', function () {
-        negativeTestCases.concat([['a string', 'abc']]).forEach(([testCase, obj]) =>
-          specify(testCase, () => {
-            expect(() => new Query({ name: 'q', generate: () => {}, transform: obj }))
-              .to.throwError()
-          }))
+        negativeTestCases.concat([['a string', 'abc']])
+          .forEach(([testCase, obj]) =>
+          specify(testCase, () =>
+            expect(() => new Query({
+              name: 'q',
+              generate: () => {},
+              transform: obj
+            })).to.throwError()))
       })
+
+      describe('with type being', function() {
+        for (const [testCase,obj] of negativeTestCases)
+          specify(testCase, () =>
+            expect(() => new Query({
+              name: 'q',
+              generate: () => {},
+              type: obj
+            })).to.throwError())
+      });
+
+      specify('when both type and transformer are specified', () =>
+        expect(() => new Query({
+          name: 'q',
+          generate: () => {},
+          transform: () => {},
+          type: 'boolean'
+        })).to.throwError());
+
+      specify('when type does not exist', () =>
+        expect(() => new Query({
+          name: 'q',
+          generate: () => {},
+          type: 'nonexistent'
+        })).to.throwError());
     })
   })
 
-  // TODO: this.transform should be omittable
   describe('when run', function () {
     let q, conf;
     beforeEach(() => {
       sinon.restore();
       conf = ConfigFactory.create()
       conf.pool = { query: sinon.fake.resolves({ rows: [] }) }
-      q = new Query({ name: 'q', generate: () => {}, transform: () => {} })
+      q = new Query({ name: 'q', generate: () => {} })
     })
 
     it('should run its hooks', async () => {
@@ -79,11 +108,11 @@ describe('A query object', function () {
       expect(afterHook.callCount).to.be(1)
     })
 
-    it('should give its name as a parameter', async () => {
-      let name;
-      q.hooks.add('before', ({ query }) => name = query)
+    it('should give itself as a parameter', async () => {
+      let qAsPar;
+      q.hooks.add('before', ({ query }) => qAsPar = query)
       await q.run(new Params({ conf }))
-      expect(name).to.be.ok()
+      expect(qAsPar).to.be(q)
     })
 
     it('should pass the response to the after-hooks', async () => {
