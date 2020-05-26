@@ -11,33 +11,19 @@ class ConfigFactory {
       opt.primaryKey : this.init.primaryKey;
     const table = props.includes('table') ?
       opt.table : this.init.table;
-    const ids = props.includes('ids') ?
-      opt.ids : this.init.ids;
     const columns = props.includes('columns') ?
       opt.columns : this.init.columns;
 
-    return new Config(table, primaryKey, { ids: ids, columns: columns });
+    return new Config(table, primaryKey, { columns });
   }
 
   // TODO: Make this flexible
   static init = {
     table: 'Mockies',
     primaryKey: 'id',
-    columns: ['msg', 'msg2'],
-    ids: ['uniq']
+    columns: ['msg', 'msg2', ['uniq', { id: true }]],
   };
 }
 
 
-/* TODO: Fix
-class PerseestFactory {
-  static createClass() {
-    return class extends Perseest.Class {
-      static db = ConfigFactory.create();
-    }
-  }
-}
-*/
-
-
-module.exports = { /* Perseest: PerseestFactory, */ Config: ConfigFactory };
+module.exports = { Config: ConfigFactory };

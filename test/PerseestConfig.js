@@ -4,6 +4,7 @@
 'use strict'
 const expect = require('expect.js')
 const sinon = require('sinon')
+const Config = require('../lib/PerseestConfig')
 const ConfigFactory = require('./help/factories').Config
 const help = require('../lib/helpers')
 
@@ -24,56 +25,53 @@ describe('Perseest.Config', function () {
       expect(() => ConfigFactory.create({ primaryKey: { a: 321321 } }))
         .to.throwError())
 
-    for (const attr of ['ids', 'columns']) {
-      specify(`non-iterable ${attr} collection`, () => {
-        const args = Object.fromEntries([[attr, { a: 1, b: 2 }]])
-        expect(() => ConfigFactory.create(args)).to.throwError()
-      })
-    }
+    specify('non-iterable columns collection', () =>
+      expect(() => ConfigFactory.create({ columns: { a: 1, b: 2 } }))
+        .to.throwError())
   })
 })
 
 describe('Database', function () {
-  let Config
+  let conf
   beforeEach(async () => {
     sinon.restore()
-    Config = ConfigFactory.create()
+    conf = ConfigFactory.create()
   })
 
   describe('setting up', function () {
     it('should be successful with no arguments', () => {
-      expect(() => Config.setup()).to.not.throwError()
-      expect(Config.pool).to.be.ok()
+      expect(() => conf.setup()).to.not.throwError()
+      expect(conf.pool).to.be.ok()
     })
 
     it('should be successful with a URL string', () => {
-      expect(() => Config.setup(process.env.POSTGRES_URI)).to.not.throwError()
-      expect(Config.pool).to.be.ok()
+      expect(() => conf.setup(process.env.POSTGRES_URI)).to.not.throwError()
+      expect(conf.pool).to.be.ok()
     })
 
     it('should be successful with a configuration object', () => {
-      expect(() => Config.setup({
+      expect(() => conf.setup({
         user: 'user',
         host: 'mydb.server.net',
         database: 'testdb',
         password: 'mypassword',
         port: 1234
       })).to.not.throwError()
-      expect(Config.pool).to.be.ok()
+      expect(conf.pool).to.be.ok()
     })
 
     it('should never throw an error with bad parameters', () => {
-      expect(() => Config.setup(() => {})).to.not.throwError()
+      expect(() => conf.setup(() => {})).to.not.throwError()
     })
   })
 
   describe('cleaning up', function () {
     it('should attempt to close the pool if active', async () => {
       const fake = sinon.fake.resolves()
-      Config.setup(process.env.POSTGRES_URI)
-      sinon.replace(Config.pool, 'end', fake)
+      conf.setup(process.env.POSTGRES_URI)
+      sinon.replace(conf.pool, 'end', fake)
       try {
-        await Config.cleanup()
+        await conf.cleanup()
       } catch (err) {
         throw err
       }
@@ -82,7 +80,7 @@ describe('Database', function () {
 
     it('should return doing nothing if no active pool is present', async () => {
       try {
-        await Config.cleanup()
+        await conf.cleanup()
       } catch (err) {
         throw err
       }
@@ -90,10 +88,10 @@ describe('Database', function () {
 
     it('should return (and not throw) an error if closing the pool fails', async () => {
       const fake = sinon.fake.rejects(new Error('Rejected'))
-      Config.setup(process.env.POSTGRES_URI)
-      sinon.replace(Config.pool, 'end', fake)
+      conf.setup(process.env.POSTGRES_URI)
+      sinon.replace(conf.pool, 'end', fake)
       try {
-        const ret = await Config.cleanup()
+        const ret = await conf.cleanup()
         expect(ret).to.be.an(Error)
       } catch (err) {
         throw err
@@ -103,28 +101,28 @@ describe('Database', function () {
 
   after(() => {
     sinon.restore()
-    Config.setup(process.env.POSTGRES_URI)
+    conf.setup(process.env.POSTGRES_URI)
   })
 })
 
 describe('Query hook interface', function () {
-  let Config
-  beforeEach(() => Config = ConfigFactory.create())
+  let conf
+  beforeEach(() => conf = ConfigFactory.create())
 
   describe('adding', function () {
     let query
-    beforeEach(() => query = Config.queries.get('save'))
+    beforeEach(() => query = conf.queries.get('save'))
 
     describe('should be successful', function () {
       specify('for a single hook', () => {
-        Config.addHook('before', 'save', () => {})
+        conf.addHook('before', 'save', () => {})
         expect(query.hooks.before).to.have.length(1)
       })
 
       specify('for multiple hooks', () => {
         const MULT = 8
         const rnd = Math.ceil((Math.random() + 0.1) * MULT - 1)
-        for (const n of help.range(1, rnd)) { Config.addHook('before', 'save', () => {}) }
+        for (const n of help.range(1, rnd)) { conf.addHook('before', 'save', () => {}) }
         expect(query.hooks.before).to.have.length(rnd)
       })
     })
@@ -139,16 +137,16 @@ describe('Query hook interface', function () {
           ['falsy', false]
         ].forEach(([testCase, obj]) => {
           specify(testCase, () =>
-            expect(() => Config.addHook('after', 'save', obj)).to.throwError())
+            expect(() => conf.addHook('after', 'save', obj)).to.throwError())
         })
       })
 
       specify('when trigger is not a string', () =>
-        expect(() => Config.addHook('before', { a: 1, b: 2 }, () => {}))
+        expect(() => conf.addHook('before', { a: 1, b: 2 }, () => {}))
           .to.throwError())
 
       specify('when temporal trigger is invalid', () =>
-        expect(() => Config.addHook('sometimes', 'save', () => {}))
+        expect(() => conf.addHook('sometimes', 'save', () => {}))
           .to.throwError())
     })
   })
@@ -157,21 +155,21 @@ describe('Query hook interface', function () {
     let q1, q2
     beforeEach(() => {
       for (const when of ['before', 'after']) {
-        Config.addHook(when, 'save', () => {})
-        Config.addHook(when, 'fetch', () => {})
+        conf.addHook(when, 'save', () => {})
+        conf.addHook(when, 'fetch', () => {})
       }
-      q1 = Config.queries.get('save')
-      q2 = Config.queries.get('fetch')
+      q1 = conf.queries.get('save')
+      q2 = conf.queries.get('fetch')
     })
 
     it('should remove all hooks without arguments', function () {
-      Config.flushHooks()
+      conf.flushHooks()
       expect(q1.hooks.before).to.be.empty()
       expect(q1.hooks.after).to.be.empty()
     })
 
     it('should remove related hooks only with trigger', function () {
-      Config.flushHooks(null, 'save')
+      conf.flushHooks(null, 'save')
       expect(q2.hooks.before).to.not.be.empty()
       expect(q2.hooks.after).to.not.be.empty()
       expect(q1.hooks.before).to.be.empty()
@@ -179,7 +177,7 @@ describe('Query hook interface', function () {
     })
 
     it('should remove related hooks only with moment', function () {
-      Config.flushHooks('before')
+      conf.flushHooks('before')
       expect(q1.hooks.before).to.be.empty()
       expect(q2.hooks.before).to.be.empty()
       expect(q1.hooks.after).to.not.be.empty()
@@ -187,7 +185,7 @@ describe('Query hook interface', function () {
     })
 
     it('should remove related hooks with trigger and moment', function () {
-      Config.flushHooks('before', 'save')
+      conf.flushHooks('before', 'save')
       expect(q2.hooks.before).to.not.be.empty()
       expect(q2.hooks.after).to.not.be.empty()
       expect(q1.hooks.after).to.not.be.empty()
@@ -196,13 +194,80 @@ describe('Query hook interface', function () {
 
     describe('should throw an error with', function () {
       specify('non-string \'when\'', () =>
-        expect(() => Config.flushHooks({})).to.throwError())
+        expect(() => conf.flushHooks({})).to.throwError())
 
       specify('non-string trigger', () =>
-        expect(() => Config.flushHooks('before', () => {})).to.throwError())
+        expect(() => conf.flushHooks('before', () => {})).to.throwError())
 
       specify('\'when\' not within [\'before\',\'after\']', () =>
-        expect(() => Config.flushHooks('abc')).to.throwError())
+        expect(() => conf.flushHooks('abc')).to.throwError())
+    })
+  })
+})
+
+describe('Perseest.Config.ColumnMap', function() {
+  describe('creating', function() {
+    describe('should be successful', function() {
+      specify('with no arguments', () =>
+        expect(new Config.ColumnMap().size).to.be(0));
+
+      specify('with a single column represented by a string', () =>
+        expect(new Config.ColumnMap('col1').size).to.be(1));
+
+      specify('with columns represented by strings', () =>
+        expect(new Config.ColumnMap(['c1','c2']).size).to.be(2));
+
+      specify('with columns represented by [k,v] arrays', () =>
+        expect(new Config.ColumnMap([
+          ['id', { id: true }],
+          ['c', { id: false }]
+        ]).size).to.be(2));
+
+      specify('with mixed columns representations', () =>
+        expect(new Config.ColumnMap([
+          ['id', { id: true }],
+          'c1', 'c2', 'c3',
+          ['uniq', { id: true }]
+        ]).size).to.be(5));
+    })
+
+    it('should fail when columns are not an iterable collection', () =>
+      expect(() => new Config.ColumnMap({ a: 'a', b: 'b' })).to.throwError());
+  })
+
+  describe('adding columns', function() {
+    let map;
+    beforeEach(() => map = new Config.ColumnMap())
+
+    describe('should be successful', function() {
+      specify('with just the column name', () => {
+        map.set('someColumn');
+        expect(map.size).to.be(1);
+        expect(map.has('someColumn')).to.be(true);
+      });
+
+      specify('with column name and properties', () => {
+        const props = { id: true };
+        map.set('someColumn', props);
+        expect(map.size).to.be(1);
+        expect(map.has('someColumn')).to.be(true);
+        expect(map.get('someColumn')).to.be(props);
+      })
+    })
+
+    describe('should fail', function() {
+      specify('with no arguments', () =>
+        expect(() => map.set()).to.throwError())
+
+      specify('with blank name', () =>
+        expect(() => map.set('')).to.throwError())
+
+      specify('with name not being a string', () => {
+        expect(() => map.set(['a','b','c'])).to.throwError()
+        expect(() => map.set({ a: 123 })).to.throwError()
+        expect(() => map.set(() => {})).to.throwError()
+        expect(() => map.set(null)).to.throwError()
+      })
     })
   })
 })

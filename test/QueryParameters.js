@@ -24,14 +24,14 @@ describe('Query hook parameters', function () {
 
     it('should return all if they are not given', function () {
       const params = new Params({ conf: Mock.db, ent: mocky })
-      expect((new Set(params.columns)).equals(new Set(Mock.db.columns)))
+      expect((new Set(params.columns)).equals(new Set(Mock.db.columns.keys())))
         .to.be(true)
     })
   })
 
   describe('getting column values', function () {
     it('should return related ones if just columns are given', () => {
-      const columns = [[...Mock.db.columns][0]]
+      const columns = [[...Mock.db.columns.keys()][0]]
       const params = new Params({ conf: Mock.db, ent: mocky, columns })
       expect(params.columns).to.eql(columns)
       expect(params.values).to.have.length(columns.length)
@@ -41,7 +41,7 @@ describe('Query hook parameters', function () {
     it('should return all if no columns or values are given', () => {
       const params = new Params({ conf: Mock.db, ent: mocky })
       expect((new Set(params.values))
-        .equals(new Set([...Mock.db.columns].map(c => mocky[c]))))
+        .equals(new Set([...Mock.db.columns.keys()].map(c => mocky[c]))))
         .to.be(true)
     })
 
