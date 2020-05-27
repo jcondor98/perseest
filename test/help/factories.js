@@ -14,7 +14,7 @@ class ConfigFactory {
     const columns = props.includes('columns') ?
       opt.columns : this.init.columns;
 
-    return new Config(table, primaryKey, { columns });
+    return new Config(table, primaryKey, columns);
   }
 
   // TODO: Make this flexible

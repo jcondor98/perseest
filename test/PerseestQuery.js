@@ -54,23 +54,24 @@ describe('Perseest.Query', function () {
       describe('with transformer being', function () {
         negativeTestCases.concat([['a string', 'abc']])
           .forEach(([testCase, obj]) =>
-          specify(testCase, () =>
-            expect(() => new Query({
-              name: 'q',
-              generate: () => {},
-              transform: obj
-            })).to.throwError()))
+            specify(testCase, () =>
+              expect(() => new Query({
+                name: 'q',
+                generate: () => {},
+                transform: obj
+              })).to.throwError()))
       })
 
-      describe('with type being', function() {
-        for (const [testCase,obj] of negativeTestCases)
+      describe('with type being', function () {
+        for (const [testCase, obj] of negativeTestCases) {
           specify(testCase, () =>
             expect(() => new Query({
               name: 'q',
               generate: () => {},
               type: obj
             })).to.throwError())
-      });
+        }
+      })
 
       specify('when both type and transformer are specified', () =>
         expect(() => new Query({
@@ -78,21 +79,21 @@ describe('Perseest.Query', function () {
           generate: () => {},
           transform: () => {},
           type: 'boolean'
-        })).to.throwError());
+        })).to.throwError())
 
       specify('when type does not exist', () =>
         expect(() => new Query({
           name: 'q',
           generate: () => {},
           type: 'nonexistent'
-        })).to.throwError());
+        })).to.throwError())
     })
   })
 
   describe('when run', function () {
-    let q, conf;
+    let q, conf
     beforeEach(() => {
-      sinon.restore();
+      sinon.restore()
       conf = ConfigFactory.create()
       conf.pool = { query: sinon.fake.resolves({ rows: [] }) }
       q = new Query({ name: 'q', generate: () => {} })
@@ -109,14 +110,14 @@ describe('Perseest.Query', function () {
     })
 
     it('should give itself as a parameter', async () => {
-      let qAsPar;
+      let qAsPar
       q.hooks.add('before', ({ query }) => qAsPar = query)
       await q.run(new Params({ conf }))
       expect(qAsPar).to.be(q)
     })
 
     it('should pass the response to the after-hooks', async () => {
-      let result;
+      let result
       q.hooks.add('after', ({ res }) => result = res)
       await q.run(new Params({ conf }))
       expect(result).to.be.ok()
@@ -145,20 +146,19 @@ describe('Perseest.Query', function () {
   })
 })
 
-
-describe('Perseest.Query.Map', function() {
-  describe('creating', function() {
-    describe('should be successful', function() {
+describe('Perseest.Query.Map', function () {
+  describe('creating', function () {
+    describe('should be successful', function () {
       specify('with no initial queries', () => new Query.Map())
       specify('with an iterable collection of valid queries', () =>
-        new Query.Map([ new Query({
+        new Query.Map([new Query({
           name: 'q',
           type: 'boolean',
           generate: () => {}
-        }) ]))
+        })]))
     })
 
-    describe('should fail', function() {
+    describe('should fail', function () {
       specify('with a non-iterable collection of valid queries', () =>
         expect(() => new Query.Map({
           a: new Query({ name: 'q', type: 'boolean', generate: () => {} }),
@@ -166,15 +166,15 @@ describe('Perseest.Query.Map', function() {
         })).to.throwError())
 
       specify('with an iterable collection of invalid queries', () =>
-        expect(() => new Query.Map([ 'abc', { a: 1 }])).to.throwError())
+        expect(() => new Query.Map(['abc', { a: 1 }])).to.throwError())
     })
   })
 
-  describe('adding', function() {
-    let map;
+  describe('adding', function () {
+    let map
     beforeEach(() => map = new Query.Map())
 
-    describe('should be successful', function() {
+    describe('should be successful', function () {
       specify('with valid name/query entry', () => {
         expect(map.size).to.be(0)
         map.set('q', new Query({ name: 'q', type: 'boolean', generate: () => {} }))
@@ -194,23 +194,23 @@ describe('Perseest.Query.Map', function() {
       })
     })
 
-    describe('should fail', function() {
+    describe('should fail', function () {
       const q = new Query({ name: 'q', type: 'boolean', generate: () => {} })
 
       specify('with invalid name', () => {
         expect(map.size).to.be(0)
-        expect(() => map.set('@!.-', q)).to.throwError();
-        expect(() => map.set('', q)).to.throwError();
-        expect(() => map.set(undefined, q)).to.throwError();
-        expect(() => map.set(q)).to.throwError();
+        expect(() => map.set('@!.-', q)).to.throwError()
+        expect(() => map.set('', q)).to.throwError()
+        expect(() => map.set(undefined, q)).to.throwError()
+        expect(() => map.set(q)).to.throwError()
         expect(map.size).to.be(0)
       })
 
       specify('with invalid query instance, using set()', () => {
         expect(map.size).to.be(0)
-        expect(() => map.set('q', null)).to.throwError();
-        expect(() => map.set('q', 'abc')).to.throwError();
-        expect(() => map.set('q', { a: 1, b: '2' })).to.throwError();
+        expect(() => map.set('q', null)).to.throwError()
+        expect(() => map.set('q', 'abc')).to.throwError()
+        expect(() => map.set('q', { a: 1, b: '2' })).to.throwError()
         expect(map.size).to.be(0)
       })
 
@@ -223,40 +223,39 @@ describe('Perseest.Query.Map', function() {
       })
 
       specify('with invalid parameters for in-place creation', () => {
-        expect(() => map.create()).to.throwError();
-        expect(() => map.create({ a: 'abc', d: 'def' })).to.throwError();
+        expect(() => map.create()).to.throwError()
+        expect(() => map.create({ a: 'abc', d: 'def' })).to.throwError()
       })
     })
   })
 })
 
-
-describe('Perseest.Query.TypeMap', function() {
-  describe('creating', function() {
-    describe('should be successful', function() {
+describe('Perseest.Query.TypeMap', function () {
+  describe('creating', function () {
+    describe('should be successful', function () {
       specify('with no initial types', () => new Query.TypeMap())
       specify('with an iterable collection of valid type', () =>
-        new Query.TypeMap([ ['dummy', () => 'dummy'] ]))
+        new Query.TypeMap([['dummy', () => 'dummy']]))
     })
 
-    describe('should fail', function() {
+    describe('should fail', function () {
       specify('with a non-iterable collection of valid types', () =>
         expect(() => new Query.TypeMap({
           boh: ['dummy1', () => {}],
-          mah: ['dummy2', () => {}],
+          mah: ['dummy2', () => {}]
         })).to.throwError())
 
       specify('with an iterable collection of invalid types', () => {
-        expect(() => new Query.TypeMap([ [null, () => {}] ])).to.throwError()
-        expect(() => new Query.TypeMap([ ['type_1', null] ])).to.throwError()
-        expect(() => new Query.TypeMap([ ['t2', { z: 0 }] ])).to.throwError()
-        expect(() => new Query.TypeMap([ [null, null] ])).to.throwError()
+        expect(() => new Query.TypeMap([[null, () => {}]])).to.throwError()
+        expect(() => new Query.TypeMap([['type_1', null]])).to.throwError()
+        expect(() => new Query.TypeMap([['t2', { z: 0 }]])).to.throwError()
+        expect(() => new Query.TypeMap([[null, null]])).to.throwError()
       })
     })
   })
 
-  describe('adding entries', function() {
-    let map;
+  describe('adding entries', function () {
+    let map
     beforeEach(() => map = new Query.TypeMap())
 
     it('should be successful with valid name and transformer', () => {
@@ -265,7 +264,7 @@ describe('Perseest.Query.TypeMap', function() {
       expect(map.size).to.be(1)
     })
 
-    describe('should fail', function() {
+    describe('should fail', function () {
       specify('with invalid name', () => {
         expect(map.size).to.be(0)
         expect(() => map.set(null, () => 'dummy')).to.throwError()

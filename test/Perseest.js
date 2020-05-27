@@ -111,14 +111,14 @@ describe('A class extending Perseest.Class', function () {
     })
 
     it('should not try to write columns marked as serial', async () => {
-      const spy = sinon.spy(Mock.db.pool, 'query');
-      mocky.ser = 123;
+      const spy = sinon.spy(Mock.db.pool, 'query')
+      mocky.ser = 123
       try {
-        await mocky.save();
+        await mocky.save()
         expect(spy.args[0].text).to.not.match(/\(.*[, ]?ser[, \)]?.*\)/i)
-        spy.restore();
+        spy.restore()
       } catch (err) {
-        spy.restore();
+        spy.restore()
         throw err
       }
     })
@@ -223,15 +223,15 @@ describe('A class extending Perseest.Class', function () {
     })
 
     it('should not try to write columns marked as serial by default', async () => {
-      const spy = sinon.spy(Mock.db.pool, 'query');
+      const spy = sinon.spy(Mock.db.pool, 'query')
       try {
-        await mocky.save();
-        mocky.ser = 123;
-        await mocky.update();
+        await mocky.save()
+        mocky.ser = 123
+        await mocky.update()
         expect(spy.args[0].text).to.not.match(/\(.*[, ]?ser[, \)]?.*\)/i)
-        spy.restore();
+        spy.restore()
       } catch (err) {
-        spy.restore();
+        spy.restore()
         throw err
       }
     })

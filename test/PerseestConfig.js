@@ -24,10 +24,21 @@ describe('Perseest.Config', function () {
     specify('non-string primary key', () =>
       expect(() => ConfigFactory.create({ primaryKey: { a: 321321 } }))
         .to.throwError())
+  })
 
-    specify('non-iterable columns collection', () =>
-      expect(() => ConfigFactory.create({ columns: { a: 1, b: 2 } }))
-        .to.throwError())
+  it('should accept an enumerable object as column collection', () => {
+    const conf = new Config('SomeTable', 'pk', {
+      col1: null,
+      col2: { id: true },
+      col3: {}
+    })
+    expect(conf.columns.size).to.be(4) // col[123] + pk
+    expect(conf.columns.get('col2').id).to.be(true)
+  })
+
+  it('should automatically set \'id\' for the primary key', () => {
+    const conf = new Config('SomeTable', 'pk', ['pk', 'hello'])
+    expect(conf.columns.get('pk').id).to.be(true)
   })
 })
 
@@ -205,57 +216,54 @@ describe('Query hook interface', function () {
   })
 })
 
-describe('Perseest.Config.ColumnMap', function() {
-  describe('creating', function() {
-    describe('should be successful', function() {
+describe('Perseest.Config.ColumnMap', function () {
+  describe('creating', function () {
+    describe('should be successful', function () {
       specify('with no arguments', () =>
-        expect(new Config.ColumnMap().size).to.be(0));
+        expect(new Config.ColumnMap().size).to.be(0))
 
       specify('with a single column represented by a string', () =>
-        expect(new Config.ColumnMap('col1').size).to.be(1));
+        expect(new Config.ColumnMap('col1').size).to.be(1))
 
       specify('with columns represented by strings', () =>
-        expect(new Config.ColumnMap(['c1','c2']).size).to.be(2));
+        expect(new Config.ColumnMap(['c1', 'c2']).size).to.be(2))
 
       specify('with columns represented by [k,v] arrays', () =>
         expect(new Config.ColumnMap([
           ['id', { id: true }],
           ['c', { id: false }]
-        ]).size).to.be(2));
+        ]).size).to.be(2))
 
       specify('with mixed columns representations', () =>
         expect(new Config.ColumnMap([
           ['id', { id: true }],
           'c1', 'c2', 'c3',
           ['uniq', { id: true }]
-        ]).size).to.be(5));
+        ]).size).to.be(5))
     })
-
-    it('should fail when columns are not an iterable collection', () =>
-      expect(() => new Config.ColumnMap({ a: 'a', b: 'b' })).to.throwError());
   })
 
-  describe('adding columns', function() {
-    let map;
+  describe('adding columns', function () {
+    let map
     beforeEach(() => map = new Config.ColumnMap())
 
-    describe('should be successful', function() {
+    describe('should be successful', function () {
       specify('with just the column name', () => {
-        map.set('someColumn');
-        expect(map.size).to.be(1);
-        expect(map.has('someColumn')).to.be(true);
-      });
+        map.set('someColumn')
+        expect(map.size).to.be(1)
+        expect(map.has('someColumn')).to.be(true)
+      })
 
       specify('with column name and properties', () => {
-        const props = { id: true };
-        map.set('someColumn', props);
-        expect(map.size).to.be(1);
-        expect(map.has('someColumn')).to.be(true);
-        expect(map.get('someColumn')).to.be(props);
+        const props = { id: true }
+        map.set('someColumn', props)
+        expect(map.size).to.be(1)
+        expect(map.has('someColumn')).to.be(true)
+        expect(map.get('someColumn')).to.be(props)
       })
     })
 
-    describe('should fail', function() {
+    describe('should fail', function () {
       specify('with no arguments', () =>
         expect(() => map.set()).to.throwError())
 
@@ -263,7 +271,7 @@ describe('Perseest.Config.ColumnMap', function() {
         expect(() => map.set('')).to.throwError())
 
       specify('with name not being a string', () => {
-        expect(() => map.set(['a','b','c'])).to.throwError()
+        expect(() => map.set(['a', 'b', 'c'])).to.throwError()
         expect(() => map.set({ a: 123 })).to.throwError()
         expect(() => map.set(() => {})).to.throwError()
         expect(() => map.set(null)).to.throwError()
