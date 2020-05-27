@@ -17,7 +17,9 @@ before(async () => {
   id INTEGER PRIMARY KEY, 
   uniq VARCHAR UNIQUE NOT NULL,
   msg VARCHAR,
-  msg2 VARCHAR);
+  msg2 VARCHAR,
+  ser SERIAL
+);
 `)
 
   await Mock.db.pool.query('DELETE FROM Mockies')
@@ -99,13 +101,26 @@ describe('A class extending Perseest.Class', function () {
       })
     })
 
-    specify('should fall back to update() if existent', async () => {
+    it('should fall back to update() if existent', async () => {
       const fake = sinon.fake.resolves(true)
       sinon.replace(mocky, 'update', fake)
       mocky.exists = true
       expect(await mocky.save()).to.be(true)
       expect(fake.callCount).to.be(1)
       sinon.restore()
+    })
+
+    it('should not try to write columns marked as serial', async () => {
+      const spy = sinon.spy(Mock.db.pool, 'query');
+      mocky.ser = 123;
+      try {
+        await mocky.save();
+        expect(spy.args[0].text).to.not.match(/\(.*[, ]?ser[, \)]?.*\)/i)
+        spy.restore();
+      } catch (err) {
+        spy.restore();
+        throw err
+      }
     })
   })
 
@@ -205,6 +220,20 @@ describe('A class extending Perseest.Class', function () {
           .then(() => done(new Error('User should not have been saved')))
           .catch(() => done())
       })
+    })
+
+    it('should not try to write columns marked as serial by default', async () => {
+      const spy = sinon.spy(Mock.db.pool, 'query');
+      try {
+        await mocky.save();
+        mocky.ser = 123;
+        await mocky.update();
+        expect(spy.args[0].text).to.not.match(/\(.*[, ]?ser[, \)]?.*\)/i)
+        spy.restore();
+      } catch (err) {
+        spy.restore();
+        throw err
+      }
     })
   })
 

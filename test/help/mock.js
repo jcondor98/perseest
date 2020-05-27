@@ -11,6 +11,7 @@ class Mock extends PerseestClass {
     this.msg = msg || 'abcde';
     this.msg2 = msg2 || 'fghijk';
     this.uniq = uniq || this.id;
+    this.ser = null;
   }
 
   static id = 0;

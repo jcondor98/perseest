@@ -21,7 +21,7 @@ class ConfigFactory {
   static init = {
     table: 'Mockies',
     primaryKey: 'id',
-    columns: ['msg', 'msg2', ['uniq', { id: true }]],
+    columns: ['msg', 'msg2', ['uniq', { id: true }], ['ser', { serial: true }]],
   };
 }
 
