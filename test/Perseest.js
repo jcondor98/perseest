@@ -287,8 +287,8 @@ describe('A class extending Perseest.Class', function () {
     let mockies1, mockies2
     beforeEach(async () => {
       Mock.db.pool.query(`DELETE FROM ${Mock.db.table}`)
-      mockies1 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ciaone' }))
-      mockies2 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ehila' }))
+      mockies1 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ciaone', msg2: 'weee' }))
+      mockies2 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ehila', msg2: 'weee' }))
       for (const i of range(0, BURST - 1)) {
         await mockies1[i].save()
         await mockies2[i].save()
@@ -296,7 +296,7 @@ describe('A class extending Perseest.Class', function () {
     })
 
     describe('fetching', function () {
-      specify('should return all the entities present with no condition', async () => {
+      it('should return all the entities present with no condition', async () => {
         try {
           const ents = await Mock.fetchMany()
           expect(ents).to.have.length(BURST * 2)
@@ -305,7 +305,7 @@ describe('A class extending Perseest.Class', function () {
         }
       })
 
-      specify('should return matching entities with a condition', async () => {
+      it('should return matching entities with a condition', async () => {
         try {
           const ents = await Mock.fetchMany({ msg: 'ciaone' })
           expect(ents).to.have.length(BURST)
@@ -314,20 +314,47 @@ describe('A class extending Perseest.Class', function () {
           throw err
         }
       })
-    })
 
-    describe('deleting', function () {
-      specify('should delete matching entities with a condition', async () => {
+      it('should concat multiple condition with AND by default', async () => {
         try {
-          await Mock.deleteMany({ msg: 'ehila' })
-          const ents = await Mock.fetchMany({ msg: 'ehila' })
-          expect(ents).to.be.empty()
-          // expect(ents.filter(e => e.msg === 'ehila')).to.be.empty()
+          expect(await Mock.fetchMany({ msg: 'ciaone', msg2: 'weee' }))
+            .to.have.length(BURST)
+          expect(await Mock.fetchMany({ msg: 'ciaone', uniq: mockies1[0].uniq }))
+            .to.have.length(1)
         } catch (err) {
           throw err
         }
       })
-      // TODO: Decide if delete should fail with no condition
+    })
+
+    describe('deleting', function () {
+      it('should delete matching entities with a condition', async () => {
+        try {
+          await Mock.deleteMany({ msg: 'ehila' })
+          const ents = await Mock.fetchMany()
+          expect(ents).to.have.length(BURST)
+          expect(ents.filter(e => e.msg === 'ehila')).to.be.empty()
+        } catch (err) {
+          throw err
+        }
+      })
+
+      it('should fail without a condition', done => {
+        Mock.deleteMany()
+          .then(() => done(new Error('deleteMany should have thrown an error')))
+          .catch(() => done())
+      })
+
+      it('should concat multiple condition with AND by default', async () => {
+        try {
+          expect(await Mock.deleteMany({ msg: 'ciaone', msg2: 'weee' }))
+            .to.be(BURST)
+          expect(await Mock.deleteMany({ msg: 'ehila', uniq: mockies2[0].uniq }))
+            .to.be(1)
+        } catch (err) {
+          throw err
+        }
+      })
     })
   })
 })
