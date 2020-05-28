@@ -50,7 +50,7 @@ the test coverage, run `npm run coverage`.
 ### Making a class persistent
 Basically, to make an ES6 class persistent you have to make it extend
 `Perseest`, using either `Perseest.Class` or `Perseest.Mixin`, with a static
-member given by an instance of `Perseest.Config` named `db`. For example,
+member named `db` being by an instance of `Perseest.Config`. For example,
 consider a user class which has to save its username, email and hashed
 password:
 
@@ -68,11 +68,23 @@ class User extends Perseest.Class {
 
   ...
 
-  static db = new Perseest.Config({
-    primaryKey: 'name',  // Primary key
-    ids: ['email'],      // Additional columns usable as a univocal id
-    columns: ['hash']    // Additional persistent properties
+  // Use as Perseest.Config(table_name, primary_key, columns)
+  // Columns are specified as an enumerable object in the form:
+  //   { column_name: { attribute1: <some-value>, ... }, ... }
+  static db = new Perseest.Config('UserAccount', 'id', {
+    id:    { serial: true },
+    name:  { id: true },
+    email: { id: true },
+    hash:  null  // {} is the same
   });
+
+  // Moreover, columns can be specified as a [name,attributes] array, and when
+  // there are no options to specify, you can just use a string.
+  // This can be handy with a lot of columns without attributes
+  static db = new PerseestConfig('UserAccount', 'id', [
+    'a', 'lot', 'of', 'user', 'fields', 'but', 'just', 'one', 'with',
+    ['attributes', { id: true }]
+  ]);
 }
 
 
@@ -87,17 +99,21 @@ class VolatileUser {
 }
 
 class User extends Perseest.Mixin(VolatileUser) {
-  // Use as Perseest.Config(table_name, primary_key, options)
-  static db = new Perseest.Config('Users', 'name', {
-    ids: ['email'],
-    columns: ['hash']
+  static db = new Perseest.Config('UserAccount', 'id', {
+    id:    { serial: true },
+    name:  { id: true },
+    email: { id: true },
+    hash:  null
   });
 }
 ```
 
-**NOTE**: Repeating column names in `ids` or `columns` (e.g. rewrite the
-primary key in the `columns` property) is not required, but it can be done
-without raising any error, as such collections are implemented as Sets.
+Column attributes define special behaviours for particular columns:
+
+* `id` specifies that the column can be used as a univocal id
+* `serial` specifies that the column is automatically handled by the database
+and should not be mentioned in _INSERT_ or _UPDATE_ queries (you can still
+modify it if you explicitly pass its name to `update()`)
 
 ### Default perseest interface
 You can use basic, ActiveRecord inspired, methods to interface with the
@@ -127,13 +143,20 @@ else
 // Delete a user
 user.delete();                 // By instance...
 User.delete('name', 'homer');  // ...or by id
+
+// Fetch many users
+const many = User.fetchMany({ role: 'admin' }); // Require role equals 'admin'
+const all = User.fetchMany(); // Fetch all the users
+
+// Delete many users
+User.deleteMany({ dangerous: true }); // Require dangerous equals true
 ```
 
 These methods are present by default, and no additional configuration is
 required.
 
-**NOTE**: At this development stage, there are no default queries that are able
-to fetch multiple entities; they will be added ASAP.
+**NOTE**: At this development stage, queries acting on multiple instances are
+very limited. I shall implement a more sophisticated interface later on
 
 ### Queries
 
@@ -178,6 +201,7 @@ The following types are implemented by default:
 singular | Transforms a pg response in a single entity instance
 multiple | Transforms a pg response in an array containing multiple entities
 boolean | Returns `true` if some operation was performed, `false` otherwise
+counter | Returns the number of rows involved in the query
 
 User-defined types can be implemented. Let's realize a type
 which makes a query return the of the columns having the same value for a
@@ -231,11 +255,7 @@ Below some examples are given:
 ```js
 // Let's consider a DB table containing some log messages
 class LogMessage extends Perseest.Class {
-  static db = new Perseest.Config({
-    table: Messages,
-    primaryKey: id,
-    columns: ['content', 'severity']
-  })
+  static db = new Perseest.Config('Messages', 'id', ['content', 'severity'])
 }
 
 // e.g.: We want to know if there is any error present in the table
