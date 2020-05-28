@@ -5,6 +5,7 @@
 const expect = require('expect.js')
 const sinon = require('sinon')
 const { Mock } = require('./help/mock')
+const { range } = require('../lib/helpers')
 
 // Import environment variables
 require('dotenv').config({ path: './environment/test.env' })
@@ -278,6 +279,55 @@ describe('A class extending Perseest.Class', function () {
           .then(res => done(new Error(`User was deleted with result ${res}`)))
           .catch(() => done())
       })
+    })
+  })
+
+  describe('operation on multiple instances', function () {
+    const BURST = 8
+    let mockies1, mockies2
+    beforeEach(async () => {
+      Mock.db.pool.query(`DELETE FROM ${Mock.db.table}`)
+      mockies1 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ciaone' }))
+      mockies2 = new Array(BURST).fill(true).map(() => new Mock({ msg: 'ehila' }))
+      for (const i of range(0, BURST - 1)) {
+        await mockies1[i].save()
+        await mockies2[i].save()
+      }
+    })
+
+    describe('fetching', function () {
+      specify('should return all the entities present with no condition', async () => {
+        try {
+          const ents = await Mock.fetchMany()
+          expect(ents).to.have.length(BURST * 2)
+        } catch (err) {
+          throw err
+        }
+      })
+
+      specify('should return matching entities with a condition', async () => {
+        try {
+          const ents = await Mock.fetchMany({ msg: 'ciaone' })
+          expect(ents).to.have.length(BURST)
+          expect(ents.filter(e => e.msg !== 'ciaone')).to.be.empty()
+        } catch (err) {
+          throw err
+        }
+      })
+    })
+
+    describe('deleting', function () {
+      specify('should delete matching entities with a condition', async () => {
+        try {
+          await Mock.deleteMany({ msg: 'ehila' })
+          const ents = await Mock.fetchMany({ msg: 'ehila' })
+          expect(ents).to.be.empty()
+          // expect(ents.filter(e => e.msg === 'ehila')).to.be.empty()
+        } catch (err) {
+          throw err
+        }
+      })
+      // TODO: Decide if delete should fail with no condition
     })
   })
 })

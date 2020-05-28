@@ -10,7 +10,7 @@
   "scripts": {
     "test": "npx mocha test/*",
     "coverage": "npx nyc npm run test",
-    "lint": "npx standard --fix {lib,test}/**/*.js || echo 'standard.js detected some problems'"
+    "lint": "npx standard --fix || echo 'standard.js detected some problems'"
   },
   "keywords": [
     "persistent",

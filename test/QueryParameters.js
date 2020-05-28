@@ -63,6 +63,15 @@ describe('Query hook parameters', function () {
       const params = new Params({ conf: Mock.db, ent: mocky, key: 'uniq' })
       expect(params.key).to.equal('uniq')
     })
+
+    it('should return a falsy value if passed explicitly', () => {
+      const params = new Params({
+        conf: Mock.db,
+        key: null,
+        kval: 'abc'
+      })
+      expect(params.key).to.be(null)
+    })
   })
 
   describe('getting key value', function () {
@@ -73,15 +82,33 @@ describe('Query hook parameters', function () {
     })
 
     it('should return the correct key value if just key was given', () => {
-      const params = new Params({ conf: Mock.db, ent: mocky, key: 'uniq' })
+      const params = new Params({
+        conf: Mock.db,
+        ent: mocky,
+        key: 'uniq'
+      })
       expect(params.key).to.equal('uniq')
       expect(params.kval).to.equal(mocky.uniq)
     })
 
     it('should return the passed value if both key and value were given', () => {
-      const params = new Params({ conf: Mock.db, ent: mocky, key: 'uniq', kval: 'abcde' })
+      const params = new Params({
+        conf: Mock.db,
+        ent: mocky,
+        key: 'uniq',
+        kval: 'abcde'
+      })
       expect(params.key).to.equal('uniq')
       expect(params.kval).to.equal('abcde')
+    })
+
+    it('should return a falsy value if passed explicitly', () => {
+      const params = new Params({
+        conf: Mock.db,
+        key: 'abc',
+        kval: null
+      })
+      expect(params.kval).to.be(null)
     })
   })
 
@@ -99,6 +126,15 @@ describe('Query hook parameters', function () {
     it('should return the first one if many entity were given', () => {
       const params = new Params({ conf: Mock.db, entities: ['a', 'b', 'c'] })
       expect(params.ent).to.be('a')
+    })
+
+    it('should return a falsy value if passed explicitly', () => {
+      const params = new Params({
+        conf: Mock.db,
+        ent: null,
+        entities: ['a', 'b', 'c']
+      })
+      expect(params.ent).to.be(null)
     })
   })
 
