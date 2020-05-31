@@ -13,5 +13,6 @@ module.exports = {
   Query: require('./lib/PerseestQuery'),
   Hooks: require('./lib/PerseestHooks'),
   Config: require('./lib/PerseestConfig'),
-  Parameters: require('./lib/QueryParameters')
+  Parameters: require('./lib/QueryParameters'),
+  aux: require('./lib/helpers')
 }
