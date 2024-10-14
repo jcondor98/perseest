@@ -234,7 +234,7 @@ SomePerseestentClass.db.types.set('repetitiveSpotter', transformer);
 SomePerseestentClass.db.queries.create({
   name: 'someQuery',
   type: 'repetitiveSpotter',
-  generator: params => { ... }
+  generate: params => { ... }
 });
 ```
 
